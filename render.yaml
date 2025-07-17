@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: bg-removal
+    env: docker
+    branch: new_ui
+    rootDir: microservices/bg-removal-service
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+
+  - type: web
+    name: upscaling
+    env: docker
+    branch: new_ui
+    rootDir: microservices/upscaling-service
+    dockerfilePath: Dockerfile
+    autoDeploy: true
