@@ -1,6 +1,6 @@
 @echo off 
 REM Cambia a la carpeta raíz del proyecto (ajustá la ruta si es necesario)
-cd /d "C:\Users\Bruno\Desktop\pixel-perfect-new-ui"
+cd /d "C:\Users\Bruno\Desktop\zonda-pixel_perfect"
 
 echo Iniciando RabbitMQ...
 docker start some-rabbit
