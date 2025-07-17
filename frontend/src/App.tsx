@@ -58,6 +58,10 @@ const AppWrapper = () => {
 
   const currentPath = location.pathname;
 
+  // Rutas que NO requieren autenticación
+  const publicRoutes = ['/login', '/AuthForm', '/verify-email', '/reset-password', '/beta-signup'];
+  const isPublicRoute = publicRoutes.includes(currentPath);
+
   if (isInitializing || !authChecked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -69,7 +73,8 @@ const AppWrapper = () => {
     );
   }
 
-  if (!isAuthenticated_) {
+  // Solo redirigir a login si NO está autenticado Y NO está en una ruta pública
+  if (!isAuthenticated_ && !isPublicRoute) {
     console.log('🔴 App.tsx: Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
   }
