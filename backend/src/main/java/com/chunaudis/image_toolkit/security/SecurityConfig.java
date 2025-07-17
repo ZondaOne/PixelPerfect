@@ -70,7 +70,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("https://pixelperfect-front.netlify.app", "http://localhost:3000", "https://localhost:3000")); // Use patterns for better matching
+        configuration.setAllowedOriginPatterns(Arrays.asList("https://pixelperfect-lvnf.onrender.com", "http://localhost:3000", "https://localhost:3000")); // Use patterns for better matching
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
