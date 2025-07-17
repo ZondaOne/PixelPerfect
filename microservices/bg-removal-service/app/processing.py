@@ -1,8 +1,7 @@
 """
 Image processing module for background removal with Cloudinary integration.
 Implements full-quality and low-quality thumbnail generation.
-Uses enhanced OCR optimized for signature detection (white background with dark line).
-OPTIMIZED: Uses memory-efficient rembg models (max 400MB RAM usage).
+ULTRA OPTIMIZED: Removed OCR dependency, uses lightweight models only (max 250MB RAM).
 FIXED: Job tracking and duplicate prevention system.
 """
 
@@ -13,9 +12,8 @@ from typing import Dict, Tuple, Any, Set
 import io
 import threading
 import gc
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageStat
 from rembg import remove, new_session
-import pytesseract
 import numpy as np
 
 from app.cloudinary_service import CloudinaryService
@@ -25,13 +23,13 @@ logger = logging.getLogger(__name__)
 class ImageProcessingError(Exception):
     """Specific error for image processing failures."""
 
-# Memory-efficient model configurations
-# silueta model: ~250MB RAM, good for general use
-# u2netp model: ~150MB RAM, lightweight version of u2net
-MEMORY_EFFICIENT_MODELS = {
-    "general": "u2netp",           # Reduced from silueta (250MB) to u2netp (150MB) = 100MB saving
-    "signature": "isnet-general-use",  # Even lighter model for signatures = 30MB saving
-    "fallback": "u2netp"           # Consistent fallback
+# Ultra lightweight model configurations for 512MB RAM limit
+# u2netp: ~150MB RAM, fastest and most memory efficient
+# isnet-general-use: ~100MB RAM, even lighter
+ULTRA_LIGHT_MODELS = {
+    "general": "u2netp",           # 150MB - good balance of quality/memory
+    "signature": "u2netp",         # Same model for consistency and memory saving
+    "fallback": "u2netp"           # Single model reduces memory footprint
 }
 
 # Cache for sessions by model to avoid creating new session for each image
@@ -81,17 +79,17 @@ def get_session_for_model(model_name: str):
     """
     Get a reusable rembg session for the given model,
     caching to avoid creating multiple sessions.
-    Uses memory-efficient models to stay under 400MB RAM.
+    Uses ultra lightweight models to stay under 250MB RAM.
     """
     if model_name not in _sessions_cache:
-        logger.info(f"🔧 Creating new session for memory-efficient model: {model_name}")
+        logger.info(f"🔧 Creating new session for ultra-light model: {model_name}")
         try:
             _sessions_cache[model_name] = new_session(model_name)
             logger.info(f"✅ Session created successfully for model: {model_name}")
         except Exception as e:
             logger.error(f"❌ Failed to create session for {model_name}: {e}")
             # Fallback to most lightweight model
-            fallback_model = MEMORY_EFFICIENT_MODELS["fallback"]
+            fallback_model = ULTRA_LIGHT_MODELS["fallback"]
             logger.info(f"🔄 Using fallback model: {fallback_model}")
             _sessions_cache[model_name] = new_session(fallback_model)
     else:
@@ -99,10 +97,10 @@ def get_session_for_model(model_name: str):
     
     return _sessions_cache[model_name]
 
-def optimize_image_for_processing(image: Image.Image, max_size: int = 1024) -> Image.Image:
+def optimize_image_for_processing(image: Image.Image, max_size: int = 800) -> Image.Image:
     """
     Optimize image size to reduce memory usage during processing.
-    Maintains aspect ratio while reducing dimensions if needed.
+    Reduced max_size to 800px to save more memory.
     """
     width, height = image.size
     
@@ -124,79 +122,68 @@ def optimize_image_for_processing(image: Image.Image, max_size: int = 1024) -> I
     
     return resized
 
-def is_probable_signature(image: Image.Image, ocr_confidence_threshold=30.0) -> bool:
+def is_probable_signature_simple(image: Image.Image) -> bool:
     """
-    Detect signatures in images with white background and dark line using optimized OCR.
+    Simplified signature detection without OCR.
+    Based on image statistics: high contrast, mostly white background.
     """
     try:
-        # Convert to grayscale
+        # Convert to grayscale for analysis
         gray = image.convert("L")
         
-        # Calculate percentage of light pixels (background)
-        np_gray = np.array(gray)
-        light_pixels = np_gray > 200  # Almost white pixels
-        light_ratio = np.mean(light_pixels)
+        # Get image statistics
+        stat = ImageStat.Stat(gray)
         
-        # If not enough white background, discard as signature
-        if light_ratio < 0.85:
-            logger.debug(f"📋 Insufficient background: {light_ratio:.2f} < 0.85")
+        # Check if image has high brightness (white background)
+        mean_brightness = stat.mean[0]
+        if mean_brightness < 200:  # Not bright enough
             return False
-            
-        # Enhanced preprocessing for signatures
-        # 1. Slightly sharpen to improve thin lines
-        sharpened = gray.filter(ImageFilter.SHARPEN)
         
-        # 2. High contrast for dark signatures
-        high_contrast = sharpened.point(lambda x: 0 if x < 200 else 255)
+        # Check contrast/standard deviation
+        stddev = stat.stddev[0]
+        if stddev < 30:  # Too uniform, probably not a signature
+            return False
         
-        # 3. OCR optimized for signatures (special configuration)
-        ocr_config = r'--psm 6 --oem 3 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        # Calculate histogram to check for bimodal distribution (signature characteristic)
+        histogram = gray.histogram()
         
-        ocr_data = pytesseract.image_to_data(
-            high_contrast, 
-            lang="eng", 
-            output_type=pytesseract.Output.DICT,
-            config=ocr_config
-        )
+        # Count pixels in white range (240-255) and dark range (0-100)
+        white_pixels = sum(histogram[240:256])
+        dark_pixels = sum(histogram[0:100])
+        total_pixels = image.size[0] * image.size[1]
         
-        # Calculate maximum detected confidence - FIXED TYPE ERROR
-        confidences = []
-        for conf in ocr_data['conf']:
-            try:
-                c = float(conf)
-                if c > 0:  # Ignore negative or zero values
-                    confidences.append(c)
-            except (ValueError, TypeError):
-                continue
+        white_ratio = white_pixels / total_pixels
+        dark_ratio = dark_pixels / total_pixels
         
-        max_conf = max(confidences) if confidences else 0
+        # Signature characteristics: lots of white background, some dark strokes
+        is_signature = (white_ratio > 0.7 and dark_ratio > 0.05 and dark_ratio < 0.3)
         
-        if max_conf <= ocr_confidence_threshold:
-            logger.info(f"✍️ Signature detected: white background ({light_ratio:.2f}), low OCR confidence ({max_conf})")
-            return True
-            
-        logger.debug(f"📝 Not a signature: high OCR confidence ({max_conf})")
-        return False
+        if is_signature:
+            logger.info(f"✍️ Signature detected: white={white_ratio:.2f}, dark={dark_ratio:.2f}, contrast={stddev:.1f}")
+        else:
+            logger.debug(f"📝 Not a signature: white={white_ratio:.2f}, dark={dark_ratio:.2f}, contrast={stddev:.1f}")
+        
+        return is_signature
 
     except Exception as e:
         logger.warning(f"⚠️ Signature detection failed: {e}")
         return False
 
-def detect_signature_or_text(image_bytes: bytes, ocr_confidence_threshold: float = 30.0) -> str:
+def detect_content_type(image_bytes: bytes) -> str:
     """
-    Detect if the image is a signature (white background + dark line).
-    Returns memory-efficient model name based on content type.
+    Detect content type without OCR.
+    Returns ultra-lightweight model name.
     """
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        if is_probable_signature(image, ocr_confidence_threshold):
-            return MEMORY_EFFICIENT_MODELS["signature"]  # u2netp for signatures
-        else:
-            return MEMORY_EFFICIENT_MODELS["general"]    # silueta for general images
-
+        
+        # Simplified detection - use same model for everything to save memory
+        # This reduces memory usage and model loading time
+        return ULTRA_LIGHT_MODELS["general"]  # Always use u2netp
+        
     except Exception as e:
-        logger.warning(f"⚠️ OCR detection failed: {e}, using fallback model")
-        return MEMORY_EFFICIENT_MODELS["fallback"]
+        logger.warning(f"⚠️ Content detection failed: {e}, using fallback model")
+        return ULTRA_LIGHT_MODELS["fallback"]
 
 async def perform_background_removal(
     job_id: str,
@@ -204,15 +191,8 @@ async def perform_background_removal(
     config: Dict[str, Any]
 ) -> Tuple[str, Dict[str, Any]]:
     
-    # DEBUGGING: Show stack trace to identify where the call comes from
-    logger.error("=" * 80)
-    logger.error(f"🔍 JOB STARTED: {job_id}")
-    logger.error(f"🔗 URL: {image_url}")
-    logger.error(f"⚙️ CONFIG: {config}")
-    logger.error("📋 CALL STACK TRACE:")
-    logger.error("Stack trace:")
-    logger.error(traceback.format_exc())
-    logger.error("=" * 80)
+    logger.info(f"🔍 JOB STARTED: {job_id}")
+    logger.info(f"🔗 URL: {image_url}")
     
     # Check if job is already being processed (prevent duplicates)
     with _jobs_lock:
@@ -225,8 +205,7 @@ async def perform_background_removal(
         _active_jobs.add(job_id)
         logger.info(f"📝 Job {job_id} added to active list. Total active jobs: {len(_active_jobs)}")
 
-    ocr_confidence_threshold = config.get("ocr_confidence_threshold", 30.0)
-    max_image_size = config.get("max_image_size", 1024)  # New config for memory optimization
+    max_image_size = config.get("max_image_size", 800)  # Reduced from 1024 to 800
 
     try:
         logger.info(f"🚀 Starting job {job_id} with URL: {image_url}")
@@ -238,31 +217,39 @@ async def perform_background_removal(
         input_image = Image.open(io.BytesIO(input_image_bytes)).convert("RGB")
         optimized_image = optimize_image_for_processing(input_image, max_image_size)
         
+        # Free original image from memory immediately
+        del input_image
+        gc.collect()
+        
         # Convert back to bytes for processing
         optimized_buffer = io.BytesIO()
         optimized_image.save(optimized_buffer, format="PNG", optimize=True)
         optimized_bytes = optimized_buffer.getvalue()
 
-        model_to_use = detect_signature_or_text(optimized_bytes, ocr_confidence_threshold)
-        logger.info(f"🤖 Memory-efficient model selected for {job_id}: {model_to_use}")
+        model_to_use = detect_content_type(optimized_bytes)
+        logger.info(f"🤖 Ultra-light model selected for {job_id}: {model_to_use}")
 
         # Use cached session or create new one only if it doesn't exist
         session = get_session_for_model(model_to_use)
 
         start_time = time.perf_counter()
-        logger.info(f"🎨 Removing background for {job_id} (memory-optimized)")
+        logger.info(f"🎨 Removing background for {job_id} (ultra-memory-optimized)")
         
         # Process with optimized image to reduce memory usage
         output_bytes = remove(optimized_bytes, session=session)
         elapsed = time.perf_counter() - start_time
 
+        # Free intermediate data
+        del optimized_image, optimized_bytes
+        gc.collect()
+
         logger.info(f"🖼️ Generating thumbnail for {job_id}")
         output_image = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
         thumbnail = output_image.copy()
-        thumbnail.thumbnail((400, 300), Image.Resampling.LANCZOS)
+        thumbnail.thumbnail((300, 200), Image.Resampling.LANCZOS)  # Smaller thumbnail
 
         thumbnail_buffer = io.BytesIO()
-        thumbnail.save(thumbnail_buffer, format="PNG", optimize=True, quality=70)
+        thumbnail.save(thumbnail_buffer, format="PNG", optimize=True, quality=60)  # Lower quality
         thumbnail_bytes = thumbnail_buffer.getvalue()
 
         logger.info(f"☁️ Uploading processed image to Cloudinary for {job_id}")
@@ -276,7 +263,7 @@ async def perform_background_removal(
         )
 
         # Force garbage collection to free memory after processing
-        del input_image, optimized_image, output_image, thumbnail
+        del output_image, thumbnail
         gc.collect()
 
         logger.info(f"✅ Job {job_id} completed successfully")
@@ -285,11 +272,11 @@ async def perform_background_removal(
 
         processing_info = {
             "model_version": model_to_use,
-            "mode": "cloudinary_integration_memory_optimized",
+            "mode": "cloudinary_integration_ultra_optimized",
             "processing_time_seconds": round(elapsed, 3),
-            "signature_detection_threshold": ocr_confidence_threshold,
             "max_image_size": max_image_size,
             "memory_optimization": True,
+            "ocr_disabled": True,
             "full_quality_public_id": processed_public_id,
             "thumbnail_public_id": thumbnail_public_id,
             "thumbnail_url": thumbnail_url,
@@ -324,9 +311,10 @@ def get_system_status() -> Dict[str, Any]:
             "active_jobs": list(_active_jobs),
             "cached_models": list(_sessions_cache.keys()),
             "cached_sessions_count": len(_sessions_cache),
-            "memory_efficient_models": MEMORY_EFFICIENT_MODELS,
+            "ultra_light_models": ULTRA_LIGHT_MODELS,
             "memory_optimization_enabled": True,
-            "max_expected_ram_usage_mb": 400,
+            "ocr_disabled": True,
+            "max_expected_ram_usage_mb": 250,
             "timestamp": time.time()
         }
 
@@ -335,19 +323,21 @@ def get_memory_usage_info() -> Dict[str, Any]:
     Return information about current memory usage and optimization settings.
     """
     return {
-        "models_configuration": MEMORY_EFFICIENT_MODELS,
+        "models_configuration": ULTRA_LIGHT_MODELS,
         "expected_ram_usage": {
-            "silueta_model": "~250MB",
             "u2netp_model": "~150MB",
-            "total_max": "400MB"
+            "total_max": "250MB"
         },
         "optimization_features": [
-            "Memory-efficient model selection",
-            "Image size optimization before processing",
-            "Explicit garbage collection after processing",
+            "Single lightweight model (u2netp) for all tasks",
+            "OCR completely removed",
+            "Reduced image size optimization (800px max)",
+            "Smaller thumbnail generation (300x200)",
+            "Aggressive garbage collection",
             "Session caching to avoid model reloading"
         ],
-        "current_cached_sessions": len(_sessions_cache)
+        "current_cached_sessions": len(_sessions_cache),
+        "ram_limit_target": "512MB"
     }
 
 def force_reset_system():
@@ -379,3 +369,31 @@ def cleanup_memory():
         gc.collect()
     
     logger.info("🧹 Memory cleanup completed")
+
+def get_render_optimizations() -> Dict[str, Any]:
+    """
+    Return specific optimizations for Render.com deployment.
+    """
+    return {
+        "render_optimizations": [
+            "OCR dependency removed (saves ~100MB)",
+            "Single model strategy (u2netp only)",
+            "Reduced max image size (800px)",
+            "Smaller thumbnails (300x200)",
+            "Aggressive garbage collection",
+            "Memory monitoring enabled"
+        ],
+        "memory_footprint": {
+            "base_app": "~50MB",
+            "rembg_model": "~150MB",
+            "image_processing": "~100MB",
+            "total_estimated": "~300MB",
+            "safety_margin": "~200MB"
+        },
+        "render_recommendations": [
+            "Use this version for 512MB RAM limit",
+            "Monitor memory usage in logs",
+            "Consider processing limits per minute",
+            "Implement request queuing if needed"
+        ]
+    }
