@@ -177,7 +177,7 @@ const selectedImage = backgroundImages[selectedIndex];
 
   try {
     // Llamar a tu endpoint backend
-    const response = await fetch('http://localhost:8080/api/v1/auth/login-with-google', {
+    const response = await fetch('https://backend-1li0.onrender.com/api/v1/auth/login-with-google', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
