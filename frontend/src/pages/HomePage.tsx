@@ -614,7 +614,7 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Step number */}
+              {/* Step number. */}
               <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-10 h-10 bg-slate-900/90 backdrop-blur-xl text-white rounded-full flex items-center justify-center text-sm font-semibold shadow-xl border border-white/10">
                 {index + 1}
               </div>
