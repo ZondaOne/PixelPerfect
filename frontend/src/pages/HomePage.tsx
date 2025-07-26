@@ -6,187 +6,331 @@ import AnimatedNetMesh from '../components/AnimatedNetMesh';
 import { isAuthenticated } from '../services/authService';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Scissors, Maximize, Sparkles, Expand, Zap, Target, Shield, ArrowRight, Star, Wand2, FileImage, ArrowUpRight } from 'lucide-react';
+import { 
+  Scissors, 
+  Maximize, 
+  Sparkles, 
+  Expand, 
+  Wand2, 
+  FileImage, 
+  ArrowRight, 
+  Star, 
+  Shield, 
+  Zap, 
+  Target,
+  Check,
+  ChevronDown,
+  Play,
+  Pause
+} from 'lucide-react';
 import logo from '../assets/logo.png';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const HomePage: React.FC = () => {
-   const [showContent] = useState(true);
- 
-
-
+  const [showContent] = useState(true);
+  const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(true);
+  
   const heroRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
-  const techTextRef = useRef<HTMLDivElement>(null);
-  const speedQualityRef = useRef<HTMLDivElement>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [isTransitioning] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
-  const launchAppRef = useRef<HTMLDivElement>(null); 
-  const forYouRef = useRef<HTMLDivElement>(null);
-  const forTeamsRef = useRef(null) 
-  const infoSectionRef = useRef<HTMLDivElement>(null);
-  
-   const features = [
+  const pipelineRef = useRef<HTMLDivElement>(null);
+  const partnersRef = useRef<HTMLDivElement>(null);
+  const audienceRef = useRef<HTMLDivElement>(null);
+  const whyChooseRef = useRef<HTMLDivElement>(null);
+  const pricingRef = useRef<HTMLDivElement>(null);
+  const faqRef = useRef<HTMLDivElement>(null);
+
+  // E-commerce focused services
+  const services = [
     {
-      title: "For Creators",
-      description: "Create production-quality visual assets for your projects with unprecedented quality, speed, and style-consistency.",
+      href: "/background-removal",
+      icon: Scissors,
+      title: "Product Background Removal",
+      description: "Remove backgrounds from product photos instantly",
+      tokens: "Free"
     },
     {
-      title: "For Teams", 
-      description: "Bring your team's best ideas to life at scale, with our intuitive AI-first creative suite designed for collaboration and built for business.",
+      href: "/enlarge",
+      icon: Expand,
+      title: "Smart Product Expansion",
+      description: "AI-powered canvas expansion for lifestyle shots",
+      tokens: "1 token"
     },
     {
-      title: "For Developers",
-      description: "Experience content creation excellence with PixelPerfect'S API. With unmatched scalability, effortlessly tailor outputs to your brand guideline.",
+      href: "/upscale",
+      icon: Maximize,
+      title: "High-Resolution Upscaling",
+      description: "Enhance product images up to 4K resolution",
+      tokens: "Free"
+    },
+    {
+      href: "/object-removal",
+      icon: Sparkles,
+      title: "Defect & Object Removal",
+      description: "Remove scratches, dust, and unwanted objects",
+      tokens: "Free"
+    },
+    {
+      href: "/image-generation",
+      icon: Wand2,
+      title: "Product Variations Generator",
+      description: "Create product mockups and variations",
+      tokens: "1 token"
+    },
+    {
+      href: "#",
+      icon: FileImage,
+      title: "Batch Processing",
+      description: "Process hundreds of products at once",
+      tokens: "Coming Soon",
+      comingSoon: true
     }
   ];
 
-
-   const contentData = [
+  // E-commerce pipeline steps
+  const pipelineSteps = [
     {
-      url: "https://i.imgur.com/fK6xA7U.png",
-      
-      alt: "Modern Technology",
-      title: "Built for those who need",
-      highlight1: { text: "speed", color: "from-blue-700 to-blue-600" },
-      highlight2: { text: "quality", color: "from-purple-700 to-purple-600" },
-      description: "Advanced AI processing technology that delivers exceptional results in seconds, maintaining the precision and quality your work demands."
+      title: "Raw Product Photo",
+      description: "Original product image with cluttered background",
+      tech: "Input Processing",
+      metrics: {
+        quality: "Standard",
+        conversion: "2.1%",
+        engagement: "Low"
+      }
     },
     {
-      url: "https://i.imgur.com/P14Jczs.jpeg",
-      alt: "Data Analysis",
-      title: "Designed for teams that value",
-      highlight1: { text: "precision", color: "from-emerald-700 to-emerald-600" },
-      highlight2: { text: "efficiency", color: "from-orange-700 to-orange-600" },
-      description: "Streamlined workflows and intelligent automation tools that empower your team to achieve more with less effort and maximum accuracy."
+      title: "Background Removed",
+      description: "Clean, professional product isolation",
+      tech: "AI Background Removal",
+      metrics: {
+        quality: "Professional",
+        conversion: "4.2%",
+        engagement: "Medium"
+      }
     },
     {
-      url: "https://i.imgur.com/YYPiic6.jpeg",
-      alt: "Empresarial innovation",
-      title: "Perfect for organizations seeking",
-      highlight1: { text: "innovation", color: "from-violet-700 to-violet-600" },
-      highlight2: { text: "growth", color: "from-rose-700 to-rose-600" },
-      description: "Cutting-edge solutions that scale with your business, fostering innovation while driving sustainable growth and competitive advantage."
-    },
-    {
-      url: "https://i.imgur.com/4qFtyXo.png",
-      alt: "Team collaboration",
-      title: "Crafted for professionals who demand",
-      highlight1: { text: "reliability", color: "from-teal-700 to-teal-600" },
-      highlight2: { text: "excellence", color: "from-indigo-700 to-indigo-600" },
-      description: "Enterprise-grade reliability meets intuitive design, delivering consistent excellence that professionals trust for their most critical projects."
+      title: "AI Enhanced & Upscaled",
+      description: "Crystal clear 4K resolution with enhanced details",
+      tech: "Neural Upscaling",
+      metrics: {
+        quality: "Premium",
+        conversion: "7.8%",
+        engagement: "High"
+      }
     }
   ];
 
-  const currentContent = contentData[currentImageIndex];
+  // E-commerce partners
+  const partners = [
+    "Shopify Plus",
+    "Amazon Sellers",
+    "Etsy Stores",
+    "WooCommerce",
+    "BigCommerce",
+    "Magento",
+    "eBay Pro",
+    "Walmart Marketplace"
+  ];
 
-;
-
-useEffect(() => {
-  const handleScroll = () => {
-    if (!sectionRef.current) return;
-    
-    const rect = sectionRef.current.getBoundingClientRect();
-    const sectionHeight = rect.height;
-    const windowHeight = window.innerHeight;
-    
-    
-    let scrollProgress;
-    
-    if (rect.top > 0) {
-      
-      scrollProgress = 0;
-    } else if (rect.bottom < windowHeight) {
-     
-      scrollProgress = 1;
-    } else {
-      
-      const scrolled = -rect.top;
-      const totalScrollable = sectionHeight - windowHeight;
-      scrollProgress = scrolled / totalScrollable;
+  // E-commerce audience
+  const audience = [
+    {
+      title: "For Online Retailers",
+      description: "Transform your product catalog with professional-grade images that drive conversions and reduce returns.",
+      iconBg: "bg-gradient-to-br from-blue-50 to-blue-100",
+      iconColor: "text-blue-600",
+      borderColor: "border-blue-200/50",
+      lines: [
+        { width: "w-8", color: "bg-blue-300", delay: "0s" },
+        { width: "w-6", color: "bg-blue-400", delay: "0.5s" },
+        { width: "w-4", color: "bg-blue-500", delay: "1s" }
+      ]
+    },
+    {
+      title: "For Marketplace Sellers", 
+      description: "Stand out on Amazon, eBay, and Etsy with stunning product images that meet platform requirements.",
+      iconBg: "bg-gradient-to-br from-emerald-50 to-emerald-100",
+      iconColor: "text-emerald-600",
+      borderColor: "border-emerald-200/50",
+      lines: [
+        { width: "w-6", color: "bg-emerald-300", delay: "0s" },
+        { width: "w-8", color: "bg-emerald-400", delay: "0.3s" },
+        { width: "w-5", color: "bg-emerald-500", delay: "0.6s" }
+      ]
+    },
+    {
+      title: "For Brands & Agencies",
+      description: "Scale your product photography workflow with API integration and batch processing capabilities.",
+      iconBg: "bg-gradient-to-br from-purple-50 to-purple-100",
+      iconColor: "text-purple-600",
+      borderColor: "border-purple-200/50",
+      lines: [
+        { width: "w-7", color: "bg-purple-300", delay: "0s" },
+        { width: "w-5", color: "bg-purple-400", delay: "0.4s" },
+        { width: "w-9", color: "bg-purple-500", delay: "0.8s" }
+      ]
     }
-    
-    scrollProgress = Math.max(0, Math.min(1, scrollProgress));
-    
-    const imageIndex = Math.floor(scrollProgress * (contentData.length - 1));
-    
-  
-    if (imageIndex !== currentImageIndex) {
-      setCurrentImageIndex(imageIndex);
+  ];
+
+  // E-commerce focused features
+  const whyFeatures = [
+    {
+      icon: Shield,
+      title: "E-commerce Security",
+      description: "Your product images are processed securely and never stored permanently. GDPR compliant."
+    },
+    {
+      icon: Zap,
+      title: "Lightning Fast Processing",
+      description: "Process thousands of product images in minutes. Perfect for large catalogs and flash sales."
+    },
+    {
+      icon: Target,
+      title: "Conversion Optimized",
+      description: "Professional-grade results that increase click-through rates and reduce return rates."
     }
-  };
+  ];
 
-  window.addEventListener('scroll', handleScroll, { passive: true });
-  handleScroll(); // Check inicial
-  
-  return () => window.removeEventListener('scroll', handleScroll);
-}, [contentData.length, currentImageIndex]);
+  // E-commerce pricing
+  const pricingPlans = [
+    {
+      name: "Starter Store",
+      price: "$0",
+      period: "forever",
+      description: "Perfect for small online stores",
+      features: [
+        "50 product images per month",
+        "Background removal (unlimited)",
+        "Image upscaling (unlimited)",
+        "Object removal (unlimited)",
+        "Email support"
+      ],
+      cta: "Start Free",
+      popular: false
+    },
+    {
+      name: "Growing Business",
+      price: "$29",
+      period: "month",
+      description: "For expanding e-commerce stores",
+      features: [
+        "1,000 product images per month",
+        "All image processing tools",
+        "Priority processing queue",
+        "Batch upload (up to 100)",
+        "API access",
+        "Phone & chat support"
+      ],
+      cta: "Start Free Trial",
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      price: "$99",
+      period: "month",
+      description: "For large catalogs and agencies",
+      features: [
+        "Unlimited product images",
+        "Advanced batch processing",
+        "Custom integrations",
+        "Dedicated account manager",
+        "White-label options",
+        "99.9% SLA guarantee"
+      ],
+      cta: "Contact Sales",
+      popular: false
+    }
+  ];
 
+  // E-commerce FAQ
+  const faqs = [
+    {
+      question: "How does AI product image processing improve sales?",
+      answer: "Professional product images with clean backgrounds and high resolution increase customer trust, reduce bounce rates, and can improve conversion rates by 30-40%. Clear, detailed images also reduce return rates."
+    },
+    {
+      question: "Can I process images in bulk for my entire catalog?",
+      answer: "Yes! Our batch processing feature allows you to upload and process hundreds of product images simultaneously. Enterprise plans include unlimited batch processing."
+    },
+    {
+      question: "Are the processed images optimized for e-commerce platforms?",
+      answer: "Absolutely. Our AI automatically optimizes images for major platforms like Amazon, Shopify, eBay, and Etsy, ensuring they meet size, format, and quality requirements."
+    },
+    {
+      question: "How quickly can I process my product images?",
+      answer: "Most images are processed in under 10 seconds. For bulk processing, our enterprise solution can handle thousands of images per hour."
+    },
+    {
+      question: "Do you offer API integration for my e-commerce platform?",
+      answer: "Yes, we provide RESTful APIs and direct integrations with popular e-commerce platforms. This allows automatic processing of new product uploads."
+    },
+    {
+      question: "What happens to my original product images?",
+      answer: "Your original images are securely processed and immediately deleted after processing. We never store or use your product images for training."
+    }
+  ];
 
+  // Pipeline animation
+  useEffect(() => {
+    if (!isAnimating) return;
+    
+    const interval = setInterval(() => {
+      setCurrentStep((prev) => (prev + 1) % pipelineSteps.length);
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [isAnimating, pipelineSteps.length]);
+
+  // Animation effects
   useEffect(() => {
     if (!showContent) return;
 
-    // Main entrance timeline
+    // Hero animations
     const tl = gsap.timeline();
-
-    // Set initial states
+    
     gsap.set([logoRef.current, titleRef.current, subtitleRef.current, ctaRef.current], {
       opacity: 0,
       y: 40,
       scale: 0.95
     });
 
-    // Enhanced entrance animations
-    tl.to(logoRef.current,
-      {
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        duration: 1.2,
-        ease: "power3.out",
-        filter: "blur(0px)"
-      }
-    )
-      .to(titleRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 1.4,
-          ease: "power3.out"
-        },
-        "-=0.8"
-      )
-      .to(subtitleRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 1.2,
-          ease: "power3.out"
-        },
-        "-=1.0"
-      )
-      .to(ctaRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 1,
-          ease: "power3.out"
-        },
-        "-=0.8"
-      );
+    tl.to(logoRef.current, {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      duration: 1.2,
+      ease: "power3.out"
+    })
+    .to(titleRef.current, {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 1.4,
+      ease: "power3.out"
+    }, "-=0.8")
+    .to(subtitleRef.current, {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 1.2,
+      ease: "power3.out"
+    }, "-=1.0")
+    .to(ctaRef.current, {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 1,
+      ease: "power3.out"
+    }, "-=0.8");
 
-    // Floating animation for logo
+    // Floating logo animation
     gsap.to(logoRef.current, {
       y: -8,
       duration: 3,
@@ -196,290 +340,47 @@ useEffect(() => {
       delay: 1.5
     });
 
-    // Gradient text animation
-    const gradientText = document.querySelector('.gradient-text');
-    if (gradientText) {
-      gsap.to(gradientText, {
-        backgroundPosition: "200% center",
-        duration: 4,
-        repeat: -1,
-        ease: "none",
-        delay: 2
-      });
-    }
-
-    // Services section animation with enhanced title animation
-    if (servicesRef.current) {
-      const serviceTitle = servicesRef.current.querySelector('.services-title');
-      const serviceSubtitle = servicesRef.current.querySelector('.services-subtitle');
-      const serviceCards = servicesRef.current.querySelectorAll('.service-card');
-
-      // Create a timeline for the services section
-      const servicesTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: servicesRef.current,
-          start: "-2px bottom",
-          toggleActions: "play none none reverse"
-        }
-      });
-
-      // Animate title with snappier timing
-      servicesTl.fromTo(serviceTitle,
-        {
-          opacity: 0,
-          y: 30,
-          scale: 0.95,
-          filter: "blur(10px)"
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          filter: "blur(0px)",
-          duration: 0.8,
-          ease: "power4.out"
-        }
-      )
-        // Animate subtitle
-        .fromTo(serviceSubtitle,
-          {
-            opacity: 0,
-            y: 20
-          },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "power3.out"
-          },
-          "-=0.5"
-        )
-        // Animate service cards with improved stagger
-        .fromTo(serviceCards,
-          {
-            opacity: 0,
-            y: 40,
-            scale: 0.9,
-            rotationX: 15
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            rotationX: 0,
-            duration: 0.1,
-            ease: "power3.out",
-            stagger: 0.02
-          },
-          "-=0.05"
-        );
-    }
-
-    // Tech Text section animation
-    if (techTextRef.current) {
-      const techTextLines = techTextRef.current.querySelectorAll('.superhuman-text-line');
-      const techIndicators = techTextRef.current.querySelectorAll('.tech-indicator');
-      const techImages = techTextRef.current.querySelectorAll('.tech-image');
-
-      const techTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: techTextRef.current,
-          start: "top 85%",
-          toggleActions: "play none none reverse"
-        }
-      });
-
-      // Animate text lines
-      techTl.fromTo(techTextLines,
-        {
-          opacity: 0,
-          x: -50,
-          scale: 0.95
-        },
-        {
-          opacity: 1,
-          x: 0,
-          scale: 1,
-          duration: 0.8,
-          ease: "power3.out",
-          stagger: 0.1
-        }
-      )
-        // Animate indicators
-        .fromTo(techIndicators,
-          {
-            opacity: 0,
-            scale: 0
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            duration: 0.5,
-            ease: "back.out(1.7)",
-            stagger: 0.1
-          },
-          "-=0.4"
-        )
-        // Animate images
-        .fromTo(techImages,
-          {
-            opacity: 0,
-            scale: 0.8,
-            rotationY: 15
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            rotationY: 0,
-            duration: 1,
-            ease: "power3.out",
-            stagger: 0.2
-          },
-          "-=0.6"
-        );
-    }
-
-    // Speed Quality section animation
-    if (speedQualityRef.current) {
-      const speedQualityTitle = speedQualityRef.current.querySelector('.speed-quality-title');
-      const speedQualityText = speedQualityRef.current.querySelector('.speed-quality-text');
-      const speedQualityImage = speedQualityRef.current.querySelector('.speed-quality-image');
-      const speedQualityStats = speedQualityRef.current.querySelectorAll('.speed-quality-stat');
-
-      const speedTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: speedQualityRef.current,
-          start: "top 85%",
-          toggleActions: "play none none reverse"
-        }
-      });
-
-      // Animate image first
-      speedTl.fromTo(speedQualityImage,
-        {
-          opacity: 0,
-          scale: 0.8,
-          rotation: -5
-        },
-        {
-          opacity: 1,
-          scale: 1,
-          rotation: 0,
-          duration: 1,
-          ease: "power3.out"
-        }
-      )
-        // Animate title
-        .fromTo(speedQualityTitle,
-          {
-            opacity: 0,
-            y: 30,
-            scale: 0.95
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.8,
-            ease: "power3.out"
-          },
-          "-=0.6"
-        )
-        // Animate text
-        .fromTo(speedQualityText,
-          {
-            opacity: 0,
-            y: 20
-          },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "power3.out"
-          },
-          "-=0.4"
-        )
-        // Animate stats
-        .fromTo(speedQualityStats,
-          {
-            opacity: 0,
-            scale: 0.8
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            duration: 0.5,
-            ease: "back.out(1.7)",
-            stagger: 0.1
-          },
-          "-=0.3"
-        );
-    }
-
-    // Features section animation
-    if (featuresRef.current) {
-      const featureCards = featuresRef.current.querySelectorAll('.feature-card');
-      const featuresTitle = featuresRef.current.querySelector('.features-title');
-
-      const featuresTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: featuresRef.current,
-          start: "top 85%",
-          toggleActions: "play none none reverse"
-        }
-      });
-
-      // Animate title first
-      featuresTl.fromTo(featuresTitle,
-        {
-          opacity: 0,
-          y: 30,
-          scale: 0.95
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.8,
-          ease: "power3.out"
-        }
-      )
-        // Animate feature cards
-        .fromTo(featureCards,
-          {
-            opacity: 0,
-            y: 40,
-            scale: 0.95
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.8,
-            ease: "power3.out",
-            stagger: 0.15
-          },
-          "-=0.4"
-        );
-    }
+    // Scroll-triggered animations for sections
+    const sections = [servicesRef, pipelineRef, partnersRef, audienceRef, whyChooseRef, pricingRef, faqRef];
     
+    sections.forEach((ref) => {
+      if (ref.current) {
+        gsap.fromTo(ref.current.children, 
+          {
+            opacity: 0,
+            y: 30
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            ease: "power3.out",
+            stagger: 0.1,
+            scrollTrigger: {
+              trigger: ref.current,
+              start: "top 85%",
+              toggleActions: "play none none reverse"
+            }
+          }
+        );
+      }
+    });
+
   }, [showContent]);
 
+  // Infinite scroll animation style
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes gradientShift {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-      }
-      
-      @keyframes scroll {
+      @keyframes infiniteScroll {
         0% { transform: translateX(0); }
         100% { transform: translateX(-50%); }
       }
-      
-      .animate-scroll {
-        animation: scroll 30s linear infinite;
+      .animate-infinite-scroll {
+        animation: infiniteScroll 25s linear infinite;
+      }
+      .animate-infinite-scroll:hover {
+        animation-play-state: paused;
       }
     `;
     document.head.appendChild(style);
@@ -488,8 +389,6 @@ useEffect(() => {
       document.head.removeChild(style);
     };
   }, []);
-
-  
 
   if (!isAuthenticated()) {
     return (
@@ -505,10 +404,10 @@ useEffect(() => {
                   className="w-16 h-16 mx-auto mb-6 drop-shadow-lg"
                 />
                 <h1 className="text-2xl font-medium text-slate-900 mb-3 tracking-tight">
-                  Welcome to Pixel Perfect AI
+                  Welcome to PixelPerfect E-commerce AI
                 </h1>
                 <p className="text-slate-600 text-sm leading-relaxed">
-                  Professional image processing powered by cutting-edge AI technology.
+                  Professional product image processing powered by cutting-edge AI technology.
                 </p>
               </div>
               <a
@@ -525,102 +424,6 @@ useEffect(() => {
       </Layout>
     );
   }
-  
-const services = [
-  {
-    href: "/background-removal",
-    icon: Scissors,
-    title: "Background Removal",
-    description: "Remove backgrounds with surgical precision. Perfect for product photography and creative projects.",
-    tokens: "Free",
-    gradient: "bg-gradient-to-r from-red-600 via-orange-600 to-yellow-600",
-    videoUrl: "https://i.imgur.com/GaEtRUG.mp4",
-    videoPreload: "none", // Don't preload video
-    videoLazy: true, // Enable lazy loading
-    videoLoop: false, // Play only once
-    videoMuted: true // Muted for autoplay compatibility
-  },
-  {
-    href: "/enlarge",
-    icon: Expand,
-    title: "Image Enlargement",
-    description: "Intelligently expand images with AI-generated content to any aspect ratio.",
-    tokens: "1 token",
-    gradient: "bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600",
-    videoUrl: "https://i.imgur.com/GC78RSa.mp4",
-    videoPreload: "none",
-    videoLazy: true,
-    videoLoop: false,
-    videoMuted: true
-  },
-  {
-    href: "/upscale",
-    icon: Maximize,
-    title: "Image Upscaling",
-    description: "Enhance resolution up to 4x while preserving every detail with advanced AI algorithms.",
-    tokens: "Free",
-    gradient: "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600",
-    videoUrl: "https://i.imgur.com/ZUUALLp.mp4",
-    videoPreload: "none",
-    videoLazy: true,
-    videoLoop: false,
-    videoMuted: true
-  },
-  {
-    href: "/object-removal",
-    icon: Sparkles,
-    title: "Object Removal",
-    description: "Remove unwanted objects with intelligent content-aware fill technology.",
-    tokens: "Free",
-    gradient: "bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600",
-    videoUrl: "https://i.imgur.com/QaG3KVW.mp4",
-    videoPreload: "none",
-    videoLazy: true,
-    videoLoop: false,
-    videoMuted: true
-  },
-  {
-    href: "/image-generation",
-    icon: Wand2,
-    title: "Image Generation",
-    description: "Create stunning images from text prompts using advanced AI technology and creative algorithms.",
-    tokens: "1 token",
-    gradient: "bg-gradient-to-r from-pink-600 via-rose-600 to-red-600",
-    videoUrl: "https://i.imgur.com/NZOc4f1.mp4",
-    videoPreload: "none",
-    videoLazy: true,
-    videoLoop: false,
-    videoMuted: true
-  },
-  {
-    href: "#",
-    icon: FileImage,
-    title: "File Conversion",
-    description: "Convert between formats like PNG to JPG, WEBP, and more with optimized compression settings.",
-    tokens: "Coming Soon",
-    gradient: "bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600",
-    comingSoon: true
-  }
-];
-
-  const privacyFeatures = [
-    {
-      icon: Shield,
-      title: "Secure Processing",
-      description: "Your images are processed securely with enterprise-grade encryption and never stored permanently on our servers."
-    },
-    {
-      icon: Target,
-      title: "Zero Data Training",
-      description: "We never use your images to train our AI models. Your creative work remains exclusively yours."
-    },
-    {
-      icon: Zap,
-      title: "Instant Deletion",
-      description: "Images are automatically deleted from our servers immediately after processing is complete."
-    }
-  ];
-
 
   return (
     <Layout>
@@ -629,612 +432,561 @@ const services = [
       <Navbar />
 
       {/* Hero Section */}
-      <div
-        ref={heroRef}
-        className="min-h-screen flex items-center justify-center px-6 py-20"
-      >
+      <div ref={heroRef} className="min-h-screen flex items-center justify-center px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
-          <img
-            ref={logoRef}
-            src={logo}
-            alt="Pixel Perfect AI"
-            className="w-24 h-24 mx-auto mb-12 drop-shadow-2xl opacity-0"
-          />
+          
+          {/* Simple logo badge */}
+          <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-slate-200/50 mb-12 opacity-0" ref={logoRef}>
+            <img
+              src={logo}
+              alt="Pixel Perfect AI"
+              className="w-6 h-6"
+            />
+            <span className="text-sm font-medium text-slate-600">
+              PixelPerfect E-commerce AI
+            </span>
+          </div>
 
+          {/* Clean, impactful title */}
           <h1
             ref={titleRef}
-            className="text-5xl md:text-7xl font-light text-slate-900 mb-8 leading-tight tracking-tight opacity-0"
+            className="text-6xl md:text-8xl font-light text-slate-900 mb-8 leading-tight tracking-tight opacity-0"
           >
-            Rebel Against
+            Transform your
             <br />
-            <span className="gradient-text font-medium italic bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent bg-[length:200%_100%]">
-              Ordinary Images
-            </span>
+            <span className="font-medium">product catalog</span>
           </h1>
 
+          {/* Simple subtitle */}
           <p
             ref={subtitleRef}
-            className="text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-light opacity-0"
+            className="text-xl text-slate-600 mb-16 max-w-2xl mx-auto leading-relaxed opacity-0"
           >
-            Break the rules. Transform the mundane. Create the extraordinary.
-            <br />
-            <em className="text-slate-500">Young creators deserve young tools.</em>
-            <br />
-            <em className="text-slate-500">
-              No compromises. Fast and{' '}
-              <span className="relative inline-block px-1 py-1 font-semibold text-white bg-gradient-to-r from-green-400 to-blue-500 rounded-md">
-                FREE
-                <span className="absolute inset-0 rounded-md opacity-30 bg-white mix-blend-screen pointer-events-none"></span>
-              </span>
-            </em>
+            Professional AI image processing for e-commerce. 
+            Remove backgrounds, upscale resolution, boost conversions. 
+            All in seconds.
           </p>
 
-
+          {/* Clean CTA buttons */}
           <div
             ref={ctaRef}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center opacity-0"
           >
             <a
               href="/background-removal"
-              className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-3"
+              className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-3"
             >
-              <Scissors size={20} />
-              Start Creating
+              Process first product free
+              <ArrowRight size={18} />
             </a>
 
             <a
-              href="#services"
-              className="bg-white/60 backdrop-blur-sm border border-slate-200 text-slate-700 px-8 py-4 rounded-2xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-3"
+              href="#pipeline"
+              className="bg-white/80 backdrop-blur-sm border border-slate-200 hover:border-slate-300 text-slate-700 px-8 py-4 rounded-2xl font-medium transition-all duration-200"
             >
-              Explore Tools
-              <ArrowRight size={20} />
+              See the difference
             </a>
           </div>
         </div>
       </div>
 
-      {/* Services Section */}
-    <div
-  ref={servicesRef}
-  id="services"
-  className="py-20 sm:py-32 bg-white/40 backdrop-blur-sm"
->
-  <div className="max-w-6xl mx-auto px-4 sm:px-6">
-    <div className="text-center mb-12 sm:mb-20">
-      <h2 className="services-title text-3xl sm:text-4xl md:text-5xl font-light text-slate-900 mb-4 sm:mb-6 tracking-tight px-4">
-        <em className="italic text-slate-600">Powerful</em> AI Tools
-      </h2>
-      <p className="services-subtitle text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto font-light px-4">
-        Everything you need to transform your creative vision into reality.
-      </p>
-    </div>
-
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-      {services.map((service) => (
-        <a
-          key={service.href}
-          href={service.href}
-          className={`service-card group relative bg-white border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:border-slate-300 hover:-translate-y-1 sm:hover:-translate-y-2 ${service.comingSoon ? 'cursor-default opacity-90' : ''}`}
-        >
-          {service.comingSoon && (
-            <div className="absolute top-4 sm:top-6 right-4 sm:right-6 bg-slate-100 text-slate-500 text-xs font-medium px-2 sm:px-3 py-1 rounded-full z-10">
-              Coming Soon
-            </div>
-          )}
-
-          <div className="relative w-full h-48 sm:h-64 bg-slate-100 overflow-hidden">
-            {service.videoUrl ? (
-              <video
-                autoPlay
-                loop={service.videoLoop !== false}
-                muted={service.videoMuted !== false}
-                playsInline
-                preload={service.videoPreload || "none"}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              >
-                <source src={service.videoUrl} type="video/mp4" />
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
-                  <service.icon className="text-slate-400" size={32} />
-                </div>
-              </video>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
-                <service.icon className="text-slate-400" size={32} />
-              </div>
-            )}
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            
-            <div className="absolute top-3 sm:top-4 left-3 sm:left-4 w-6 h-6 sm:w-8 sm:h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full"></div>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-6 lg:p-8">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-100 rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-slate-900 transition-colors duration-300">
-              <service.icon className="text-slate-600 group-hover:text-white transition-colors duration-300" size={20} />
-            </div>
-
-            <h3 className={`text-lg sm:text-xl font-medium mb-2 sm:mb-3 ${service.gradient} bg-clip-text text-transparent`}>
-              {service.title}
-            </h3>
-            
-            <p className="text-slate-600 text-sm leading-relaxed mb-4 sm:mb-6">
-              {service.description}
-            </p>
-
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500 text-sm font-medium">
-                {service.tokens}
-              </span>
-              {!service.comingSoon && (
-                <ArrowRight
-                  size={16}
-                  className="text-slate-400 group-hover:text-slate-900 group-hover:translate-x-1 transition-all duration-300"
-                />
-              )}
-            </div>
-          </div>
-        </a>
-      ))}
-    </div>
-  </div>
-</div>
-
-
-<div ref={forTeamsRef} className="min-h-screen bg-white py-16 sm:py-24 px-4 sm:px-6">
-  <div className="max-w-7xl mx-auto">
-    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center text-gray-900 mb-12 sm:mb-20 tracking-tight px-4">
-      Empowering Creators, Teams, and Developers Alike.
-    </h2>
-    
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-16 sm:mb-32">
-      {features.map((feature, index) => (
-        <div 
-          key={index}
-          className="group relative bg-gray-50/80 backdrop-blur-xl border border-gray-200/50 rounded-xl sm:rounded-2xl p-6 sm:p-8 lg:p-10 hover:bg-white hover:shadow-2xl hover:shadow-gray-200/30 transition-all duration-700 hover:-translate-y-1"
-        >
-          <h3 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-gray-900 tracking-tight pr-12">
-            {feature.title}
-          </h3>
-          
-          <p className="text-gray-600 leading-relaxed text-sm sm:text-[15px] font-normal">
-            {feature.description}
+      <div ref={pipelineRef} id="pipeline" className="py-24 bg-gradient-to-b from-slate-50 to-white">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-20">
+          <h2 className="text-4xl md:text-5xl font-semibold text-slate-900 mb-6 tracking-tight">
+            AI Processing Pipeline
+          </h2>
+          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            Our advanced AI technology transforms ordinary product photos into high-converting, professional images that drive sales.
           </p>
-          
-          <div className="absolute top-6 sm:top-8 right-6 sm:right-8 w-8 h-8 sm:w-10 sm:h-10 bg-gray-100/80 rounded-full flex items-center justify-center group-hover:bg-gray-200/80 transition-all duration-300">
-            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 group-hover:rotate-12 transition-transform duration-300" />
-          </div>
         </div>
-      ))}
-    </div>
 
-    <div className="text-center max-w-4xl mx-auto">
-      <p className="text-xs sm:text-sm font-medium text-gray-500 mb-6 sm:mb-8 uppercase tracking-wider">
-        We are a product of
-      </p>
-      <div className="mb-8 sm:mb-12">
-        <a 
-          href="https://zonda.dev" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="group inline-block cursor-pointer"
-        >
-          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2">
-            <span 
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-wider group-hover:scale-105 transition-transform duration-300"
-              style={{
-                color: 'transparent',
-                background: 'linear-gradient(90deg, #000000 0%, #ff3131 40%, #ff3131 60%, #000000 100%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                backgroundSize: '200% 200%',
-                animation: 'gradientShift 12s ease-in-out infinite',
-                fontFamily: '"AwareBold", "Inter", sans-serif'
-              }}
-            >
-              ZONDA
-            </span>
-          </div>
-        </a>
-      </div>
-      
-      <p className="text-xs sm:text-sm font-medium text-gray-500 mb-8 sm:mb-12 uppercase tracking-wider">
-        Trusted by Early Adopters
-      </p>
-      
-      <div 
-        className="relative overflow-hidden"
-        onMouseEnter={(e) => {
-          const scrollElement = e.currentTarget.querySelector('.animate-scroll') as HTMLElement;
-          if (scrollElement) scrollElement.style.animationPlayState = 'paused';
-        }}
-        onMouseLeave={(e) => {
-          const scrollElement = e.currentTarget.querySelector('.animate-scroll') as HTMLElement;
-          if (scrollElement) scrollElement.style.animationPlayState = 'running';
-        }}
-      >
-        <div className="flex items-center gap-8 sm:gap-16 opacity-40 animate-scroll">
-          {[
-            "AI Creators Collective",
-            "Design Foundry", 
-            "IndieDev Hub",
-            "NextGen Studios",
-            "Product Makers",
-            "Visual Architects",
-          ].map((name, index) => (
+        {/* Pipeline Controls */}
+        <div className="flex justify-center mb-16">
+          <button
+            onClick={() => setIsAnimating(!isAnimating)}
+            className="flex items-center gap-3 px-8 py-4 bg-white/80 backdrop-blur-xl hover:bg-white/90 rounded-2xl text-slate-700 border border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            {isAnimating ? <Pause size={18} /> : <Play size={18} />}
+            {isAnimating ? 'Pause' : 'Play'} Pipeline
+          </button>
+        </div>
+
+        {/* Pipeline Steps */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-20">
+          {pipelineSteps.map((step, index) => (
             <div
               key={index}
-              className="text-gray-700 hover:opacity-100 transition-opacity duration-300 cursor-default whitespace-nowrap flex-shrink-0"
+              className={`relative bg-white/70 backdrop-blur-2xl rounded-3xl overflow-hidden transition-all duration-700 border border-white/20 shadow-2xl hover:shadow-3xl ${
+                currentStep === index 
+                  ? 'ring-1 ring-blue-500/30 shadow-blue-500/20 transform scale-[1.03]' 
+                  : 'hover:transform hover:scale-[1.02]'
+              }`}
             >
-              <div className="text-sm sm:text-base lg:text-lg font-medium tracking-wide">
-                {name}
+              {/* Large Image Container */}
+              <div className="relative h-80 overflow-hidden bg-gradient-to-br from-slate-50/50 to-slate-100/50 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center p-8">
+                  {index === 0 && (
+                    <img 
+                      src="https://images.unsplash.com/photo-1696603971992-5c7aa2a3f290?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" 
+                      alt="Original product with background"
+                      className="w-64 h-56 object-contain"
+                    />
+                  )}
+                  {index === 1 && (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      {/* Subtle transparent background pattern */}
+                      <div className="absolute inset-0 opacity-30" style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23e2e8f0' fill-opacity='0.5'%3E%3Crect x='0' y='0' width='12' height='12'/%3E%3Crect x='12' y='12' width='12' height='12'/%3E%3C/g%3E%3Cg fill='%23f1f5f9' fill-opacity='0.5'%3E%3Crect x='12' y='0' width='12' height='12'/%3E%3Crect x='0' y='12' width='12' height='12'/%3E%3C/g%3E%3C/svg%3E")`,
+                        backgroundSize: '24px 24px'
+                      }}></div>
+                      <img 
+                        src="https://res.cloudinary.com/drzokg7bb/image/upload/v1753560508/pixelperfect/processed/ff08b7bb-1108-4563-80d5-2f3082cf17de_bg_removed.png" 
+                        alt="Product with background removed"
+                        className="w-64 h-56 object-contain z-10 relative"
+                      />
+                    </div>
+                  )}
+                  {index === 2 && (
+                    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-white/20 to-slate-50/30">
+                      <img 
+                        src="https://res.cloudinary.com/drzokg7bb/image/upload/v1753560508/pixelperfect/processed/ff08b7bb-1108-4563-80d5-2f3082cf17de_bg_removed.png" 
+                        alt="Upscaled high-quality product"
+                        className="w-full h-full object-contain scale-110"
+                        style={{
+                          filter: 'contrast(1.12) saturate(1.2) brightness(1.08) drop-shadow(0 10px 30px rgba(0,0,0,0.1))'
+                        }}
+                      />
+                      {/* Quality indicator */}
+                      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-slate-700">
+                        Ready to sell
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Processing indicator */}
+                {currentStep === index && (
+                  <div className="absolute top-6 left-6 bg-blue-600/90 backdrop-blur-xl text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 shadow-lg">
+                    Processing
+                  </div>
+                )}
+
+                {/* Quality badges */}
+                <div className="absolute top-6 right-6">
+                  {index === 0 && (
+                    <span className="bg-orange-100/80 backdrop-blur-xl text-orange-700 px-4 py-2 rounded-full text-sm font-medium border border-white/30 shadow-md">
+                      Original
+                    </span>
+                  )}
+                  {index === 2 && (
+                    <span className="bg-green-100/80 backdrop-blur-xl text-green-700 px-4 py-2 rounded-full text-sm font-medium border border-white/30 shadow-md">
+                      Enhanced
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Step Info */}
+              <div className="p-8 bg-white/40 backdrop-blur-xl">
+                <div className="text-sm text-blue-600 font-semibold mb-3 uppercase tracking-wider">{step.tech}</div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-4">
+                  {step.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed mb-6">
+                  {step.description}
+                </p>
+
+                {/* Metrics */}
+                <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/20">
+                  <div className="text-center">
+                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.quality}</div>
+                    <div className="text-slate-500 text-sm">Quality</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.conversion}</div>
+                    <div className="text-slate-500 text-sm">Conversion</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.engagement}</div>
+                    <div className="text-slate-500 text-sm">Engagement</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step number */}
+              <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-10 h-10 bg-slate-900/90 backdrop-blur-xl text-white rounded-full flex items-center justify-center text-sm font-semibold shadow-xl border border-white/10">
+                {index + 1}
               </div>
             </div>
           ))}
-          
-          {[
-            "AI Creators Collective",
-            "Design Foundry",
-            "IndieDev Hub", 
-            "NextGen Studios",
-            "Product Makers",
-            "Visual Architects",
-          ].map((name, index) => (
+        </div>
+
+        {/* Results Summary - Apple Minimalist */}
+        <div className="relative bg-white/60 backdrop-blur-3xl rounded-[2.5rem] p-20 text-center border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="text-2xl font-light text-slate-900 mb-20 tracking-tight">
+              Results
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
+              <div className="group">
+                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-green-600">
+                  +185%
+                </div>
+                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
+                  Conversion Rate
+                </div>
+              </div>
+              <div className="group">
+                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-blue-600">
+                  -45%
+                </div>
+                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
+                  Return Rate
+                </div>
+              </div>
+              <div className="group">
+                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-purple-600">
+                  4×
+                </div>
+                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
+                  Resolution
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+
+
+      {/* Services Section */}
+      <div ref={servicesRef} id="services" className="py-20 bg-slate-50/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-4 tracking-tight">
+              E-commerce AI Tools
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto font-light">
+              Everything you need to create a professional product catalog that converts.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {services.map((service, index) => (
+              <a
+                key={service.href}
+                href={service.href}
+                className={`group relative bg-white/90 backdrop-blur-sm border border-slate-200/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-slate-300/50 hover:-translate-y-1 ${service.comingSoon ? 'cursor-default opacity-70' : ''}`}
+              >
+                {service.comingSoon && (
+                  <div className="absolute top-4 right-4 bg-slate-100 text-slate-500 text-xs font-medium px-3 py-1 rounded-full z-10">
+                    Coming Soon
+                  </div>
+                )}
+
+                <div className="relative w-full h-48 overflow-hidden" style={{
+                  background: `linear-gradient(135deg, 
+                    ${index === 0 ? '#fee2e2 0%, #fecaca 50%, #fca5a5 100%' : ''}
+                    ${index === 1 ? '#dbeafe 0%, #bfdbfe 50%, #93c5fd 100%' : ''}
+                    ${index === 2 ? '#d1fae5 0%, #a7f3d0 50%, #6ee7b7 100%' : ''}
+                    ${index === 3 ? '#e0e7ff 0%, #c7d2fe 50%, #a5b4fc 100%' : ''}
+                    ${index === 4 ? '#fce7f3 0%, #fbcfe8 50%, #f9a8d4 100%' : ''}
+                    ${index === 5 ? '#f3f4f6 0%, #e5e7eb 50%, #d1d5db 100%' : ''}
+                  )`
+                }}>
+                  <div className="absolute inset-0 bg-white/20 group-hover:bg-white/30 transition-colors duration-300"></div>
+                  
+                  <div className="relative h-full flex items-center justify-center">
+                    <div className="w-20 h-20 bg-white/90 backdrop-blur-sm rounded-3xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                      <service.icon className="text-slate-800" size={32} />
+                    </div>
+                  </div>
+                  
+                  {/* Animated dots pattern */}
+                  <div className="absolute top-4 left-4 flex gap-1">
+                    <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                    <div className="w-2 h-2 bg-white/40 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+                  </div>
+                  
+                  {/* Subtle geometric pattern */}
+                  <div className="absolute bottom-4 right-4 opacity-20">
+                    <div className="w-8 h-8 transform rotate-45 border border-white/60"></div>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-white">
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">
+                    {service.title}
+                  </h3>
+                  
+                  <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                    {service.description}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 text-sm font-medium">
+                      {service.tokens}
+                    </span>
+                    {!service.comingSoon && (
+                      <ArrowRight
+                        size={16}
+                        className="text-slate-400 group-hover:text-slate-900 group-hover:translate-x-1 transition-all duration-300"
+                      />
+                    )}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Partners Section */}
+      <div ref={partnersRef} className="py-24 bg-white overflow-hidden relative">
+        <div className="text-center mb-20">
+          <h3 className="text-2xl font-light text-slate-800 mb-4 tracking-tight">
+            Trusted by E-commerce Leaders
+          </h3>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-slate-300 to-transparent mx-auto"></div>
+        </div>
+        
+        <div className="flex items-center gap-20 animate-infinite-scroll">
+          {[...partners, ...partners].map((partner, index) => (
             <div
-              key={`duplicate-${index}`}
-              className="text-gray-700 hover:opacity-100 transition-opacity duration-300 cursor-default whitespace-nowrap flex-shrink-0"
+              key={index}
+              className="text-slate-700 hover:text-slate-900 transition-colors duration-300 cursor-default whitespace-nowrap flex-shrink-0 group"
             >
-              <div className="text-sm sm:text-base font-medium tracking-wide">
-                {name}
+              <div className="text-2xl font-light tracking-wide group-hover:scale-105 transition-transform duration-300">
+                {partner}
               </div>
             </div>
           ))}
         </div>
         
-        <div className="absolute top-0 left-0 w-16 sm:w-32 h-full bg-gradient-to-r from-white to-transparent pointer-events-none z-10"></div>
-        <div className="absolute top-0 right-0 w-16 sm:w-32 h-full bg-gradient-to-l from-white to-transparent pointer-events-none z-10"></div>
-      </div>
-    </div>
-  </div>
-  
-  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-purple-50/20 pointer-events-none"></div>
-</div>
-
-<div
-  ref={sectionRef}
-  className="relative bg-animated-mesh"
-  style={{ height: `${contentData.length * 40}vh` }} // Reducido para móvil
->
-  <div className="sticky top-0 h-screen flex justify-center items-center px-4 sm:px-6 relative">
-    <div className="absolute top-0 left-0 w-full h-16 sm:h-24 bg-gradient-to-b from-white to-transparent pointer-events-none z-20" />
-    <div className="absolute bottom-0 left-0 w-full h-16 sm:h-24 bg-gradient-to-t from-white to-transparent pointer-events-none z-20" />
-
-    <section className="max-w-7xl w-full flex flex-col lg:flex-row items-center gap-8 sm:gap-12 lg:gap-20 z-10 relative">
-      <div className="flex-shrink-0 w-72 sm:w-80 lg:w-[28rem] aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-white/8 backdrop-blur-sm border border-white/15 relative shadow-xl sm:shadow-2xl shadow-black/40">
-        {contentData.map((content, index) => (
-          <img
-            key={index}
-            src={content.url}
-            alt={content.alt}
-            className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
-              index === currentImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            }`}
-            style={{ willChange: 'opacity' }}
-          />
-        ))}
+        {/* Enhanced gradient overlays */}
+        <div className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-white via-white/70 to-transparent pointer-events-none z-10"></div>
+        <div className="absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-white via-white/70 to-transparent pointer-events-none z-10"></div>
       </div>
 
-      <div className="max-w-xl text-center lg:text-left px-4 sm:px-0">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light leading-tight mb-4 sm:mb-6 tracking-tight text-green-900">
-          {currentContent.title}
-        </h2>
-
-        <p className="text-base sm:text-lg text-gray-600 mb-4 sm:mb-6 leading-relaxed">
-          {currentContent.description}
-        </p>
-
-        <div className="flex justify-center lg:justify-start gap-3 sm:gap-4 text-sm text-gray-500 uppercase tracking-widest font-medium">
-          <span>{currentContent.highlight1.text}</span>
-          <span>•</span>
-          <span>{currentContent.highlight2.text}</span>
-        </div>
-      </div>
-    </section>
-  </div>
-</div>
-
-{/* Info Section */}
-<div ref={infoSectionRef} className="py-20 sm:py-36 bg-white relative z-10 overflow-hidden">
-  <div className="absolute inset-0 -z-10">
-    <svg
-      className="w-full h-full opacity-5"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 800 600"
-      preserveAspectRatio="xMidYMid slice"
-      fill="none"
-    >
-      <defs>
-        <radialGradient id="grad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#0a2540" />
-          <stop offset="100%" stopColor="#1b2e4b" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx="400" cy="300" r="400" fill="url(#grad)" />
-    </svg>
-  </div>
-
-  <div className="max-w-7xl mx-auto px-4 sm:px-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-12 sm:gap-16 lg:gap-20">
-      <div className="order-2 md:order-1">
-        <div className="mb-3 sm:mb-4 text-xs sm:text-sm font-medium text-[#0a2540] uppercase tracking-widest">
-          Now with Generative Fill
-        </div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-light text-slate-900 mb-6 sm:mb-8 leading-tight tracking-tight">
-          <span className="block mb-2 sm:mb-3">Edit</span>
-          <span className="block">
-            <span className="bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] bg-clip-text text-transparent font-semibold">
-              images effortlessly
-            </span>
-            <span className="text-slate-700"> in just seconds</span>
-          </span>
-        </h2>
-        <p className="text-sm sm:text-base md:text-lg text-slate-600 font-light mb-4 sm:mb-5 leading-relaxed">
-          PixelPerfect is your creative assistant — remove backgrounds, upscale, erase objects, and transform ideas into visuals. All in one elegant, powerful toolkit.
-        </p>
-        <p className="text-sm sm:text-base md:text-lg text-slate-600 font-light mb-6 leading-relaxed">
-          From high-resolution exports to AI-generated artwork, achieve studio-quality results with zero friction. Fast. Precise. Intuitive.
-        </p>
-        <button
-          onClick={() => setShowPopup(true)}
-          className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#0a2540] text-white text-sm sm:text-base rounded-full shadow-md hover:bg-[#122f4e] transition-all"
-        >
-          View Community Gallery
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="order-1 md:order-2 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-100">
-        <img
-          src="https://i.imgur.com/9Lk9jkz.jpeg"
-          alt="PixelPerfect UI"
-          className="w-full h-80 sm:h-96 lg:h-[520px] object-cover"
-        />
-      </div>
-    </div>
-  </div>
-</div>
-
-{/* Apple-like Unlimited Banner Section */}
-<div ref={forYouRef} className="py-16 sm:py-24 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-  <div className="absolute inset-0 -z-10">
-    <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
-    <div className="absolute bottom-1/4 right-1/4 w-56 h-56 sm:w-80 sm:h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-pulse delay-1000"></div>
-  </div>
-
-  <div className="max-w-6xl mx-auto px-4 sm:px-6">
-    <div className="relative flex flex-col md:flex-row items-center bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-      <div className="w-full md:w-1/2 p-8 sm:p-12 text-center md:text-left">
-        <div className="mb-3 sm:mb-4 text-xs sm:text-sm font-medium text-[#0a2540] uppercase tracking-widest">
-          Premium Experience
-        </div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-light text-slate-900 mb-4 sm:mb-6 leading-tight tracking-tight">
-          <span className="block mb-1 sm:mb-2">
-            <span className="bg-gradient-to-r from-[#1e3a8a] to-[#2563eb] bg-clip-text text-transparent font-semibold">
-              Unlimited images.
-            </span>
-          </span>
-          <span className="block font-light text-slate-600 italic">Endless creativity.</span>
-        </h2>
-        <p className="text-slate-600 text-sm sm:text-base md:text-lg leading-relaxed mb-6 sm:mb-8 max-w-lg mx-auto md:mx-0">
-          Generate and edit unlimited images with all our AI models. <br />
-          <strong className="font-semibold text-slate-900">No credits, no limits: your ideas will flow freely.</strong>
-        </p>
-        <div className="flex flex-col sm:flex-row justify-center md:justify-start gap-3 sm:gap-4">
-          <a
-            href="/pricing?origin=freepik_web"
-            className="px-6 sm:px-8 py-2.5 sm:py-3 border border-[#0a2540] rounded-full text-[#0a2540] font-medium hover:bg-[#0a2540] hover:text-white transition-all duration-300 text-center text-sm sm:text-base"
-          >
-            View plans
-          </a>
-          <a
-            href="/demo"
-            className="px-6 sm:px-8 py-2.5 sm:py-3 rounded-full bg-[#0a2540] text-white font-medium hover:bg-[#122f4e] transition-all duration-300 shadow-lg hover:shadow-xl text-center text-sm sm:text-base"
-          >
-            Try for free
-          </a>
-        </div>
-      </div>
-
-      <div className="w-full md:w-1/2 relative select-none p-4 sm:p-6 flex justify-center items-center">
-        <div
-          className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 overflow-hidden"
-          style={{
-            clipPath: 'polygon(10.25% 27.27%, 10.10% 29.62%, 11.11% 31.96%, 12.12% 33.14%, 12.12% 33.43%, 12.70% 33.87%, 12.70% 34.16%, 13.42% 34.75%, 13.42% 35.04%, 14.29% 35.78%, 14.29% 36.07%, 16.02% 37.83%, 16.02% 38.12%, 16.88% 38.86%, 16.88% 39.15%, 18.04% 40.32%, 18.04% 40.62%, 18.47% 40.91%, 18.47% 41.20%, 18.90% 41.50%, 18.90% 41.79%, 19.34% 42.08%, 19.34% 42.38%, 19.77% 42.67%, 19.77% 42.96%, 20.92% 44.43%, 21.07% 45.01%, 21.36% 45.16%, 23.23% 48.83%, 24.68% 53.23%, 24.82% 57.77%, 24.24% 60.70%, 23.23% 63.64%, 22.66% 64.52%, 22.66% 64.96%, 19.48% 70.97%, 18.61% 73.61%, 18.61% 75.66%, 19.19% 77.13%, 20.49% 78.45%, 21.36% 78.89%, 22.22% 79.18%, 24.82% 79.18%, 28.14% 78.15%, 35.93% 74.19%, 36.36% 74.19%, 36.65% 73.90%, 37.09% 73.90%, 37.37% 73.61%, 40.26% 72.58%, 43.43% 71.99%, 46.32% 72.14%, 47.76% 72.58%, 49.35% 73.46%, 51.37% 75.81%, 52.81% 79.47%, 54.11% 85.19%, 55.27% 87.10%, 56.13% 87.54%, 57.72% 87.54%, 59.02% 87.10%, 59.16% 86.80%, 60.61% 86.07%, 61.62% 85.04%, 62.05% 84.02%, 62.34% 83.87%, 62.34% 83.43%, 63.06% 81.82%, 64.65% 71.11%, 65.66% 67.89%, 66.09% 67.30%, 66.09% 66.86%, 66.81% 65.40%, 67.10% 65.25%, 67.68% 63.93%, 68.83% 62.61%, 69.12% 61.88%, 69.70% 61.44%, 69.70% 61.14%, 71.28% 59.38%, 71.28% 59.09%, 71.86% 58.65%, 71.86% 58.36%, 72.44% 57.92%, 72.44% 57.62%, 73.16% 57.04%, 73.16% 56.74%, 73.88% 56.16%, 73.88% 55.87%, 74.60% 55.28%, 75.18% 54.25%, 75.90% 53.67%, 75.90% 53.37%, 76.62% 52.79%, 77.20% 51.76%, 77.92% 51.17%, 77.92% 50.88%, 79.65% 48.97%, 79.65% 48.68%, 80.09% 48.39%, 80.09% 48.09%, 80.52% 47.80%, 80.52% 47.51%, 80.95% 47.21%, 80.95% 46.92%, 81.39% 46.63%, 81.39% 46.33%, 81.82% 46.04%, 82.40% 44.87%, 83.41% 43.70%, 83.55% 43.11%, 84.27% 42.23%, 85.43% 39.88%, 85.86% 38.56%, 85.86% 35.04%, 85.28% 34.46%, 84.70% 34.31%, 82.54% 34.75%, 74.75% 38.86%, 71.43% 40.03%, 69.41% 40.32%, 67.97% 40.18%, 65.66% 39.15%, 64.21% 37.68%, 64.07% 37.10%, 63.78% 36.95%, 63.35% 36.07%, 62.34% 32.11%, 62.05% 29.33%, 62.19% 16.42%, 61.90% 14.52%, 61.47% 13.05%, 60.89% 12.02%, 60.03% 11.14%, 58.87% 10.70%, 57.00% 10.85%, 55.41% 12.17%, 55.41% 12.46%, 54.98% 12.76%, 54.98% 13.05%, 54.11% 14.08%, 53.82% 14.96%, 53.54% 15.10%, 53.25% 15.98%, 52.96% 16.13%, 51.37% 19.35%, 50.79% 19.94%, 50.07% 21.41%, 49.21% 22.29%, 49.21% 22.58%, 48.48% 23.17%, 48.48% 23.46%, 45.31% 26.39%, 42.42% 28.01%, 40.55% 28.45%, 40.12% 28.74%, 37.23% 29.18%, 32.76% 29.03%, 27.56% 28.01%, 27.13% 27.71%, 25.54% 27.42%, 18.90% 25.22%, 15.87% 24.63%, 13.42% 24.63%, 12.41% 24.93%, 10.68% 26.39%, 10.25% 27.27%)',
-          }}
-        >
-          <img
-            src="https://res.cloudinary.com/drzokg7bb/image/upload/v1752321215/pixelperfect/processed/8d27f1aa-5c1a-4da7-ab05-f1d6b5f66b39_pixel_perfect.png"
-            alt="PixelPerfect star shape"
-            className="w-full h-full object-cover relative z-10 rounded-[15px] sm:rounded-[20px]"
-            loading="lazy"
-            draggable={false}
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-                
- {/* Launch App Section */}
-{/* Launch App Section - Mobile Optimized */}
-<div ref={launchAppRef} className="py-16 sm:py-24 md:py-32 bg-white relative z-10">
-  <div className="max-w-6xl mx-auto px-4 sm:px-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-8 sm:gap-12 md:gap-16">
-      {/* Image - Mobile First */}
-      <div className="order-2 md:order-1 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl shadow-gray-300/20">
-        <img
-          src="https://i.imgur.com/vFbGwUI.jpeg"
-          alt="Launch App"
-          className="w-full h-[300px] sm:h-[400px] md:h-[500px] object-cover transition-transform duration-500 ease-in-out hover:scale-[1.03]"
-          style={{ willChange: 'transform' }}
-        />
-      </div>
-      
-      {/* Content - Mobile First */}
-      <div className="order-1 md:order-2 text-center md:text-left">
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-extralight text-gray-900 mb-6 sm:mb-8 tracking-tight leading-[1.1] font-sans">
-          <span className="block mb-2 sm:mb-3">Get started now.</span>
-          <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 sm:gap-4 md:gap-6">
-            <span className="relative inline-block cursor-default select-none">
-              <span className="italic bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent font-light text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] drop-shadow-sm">
-                Launch
-              </span>
-              <span
-                className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-blue-700 to-transparent opacity-50
-                transition-opacity duration-300"
-              ></span>
-            </span>
-            <span className="text-gray-900 font-extralight text-[1.2rem] sm:text-[1.5rem] md:text-[1.8rem] select-none opacity-80 tracking-wider">
-              the
-            </span>
-            <span className="relative inline-block cursor-default select-none">
-              <span className="italic bg-gradient-to-r from-cyan-600 to-purple-700 bg-clip-text text-transparent font-light text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] drop-shadow-sm">
-                App
-              </span>
-              <span
-                className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-cyan-600 to-transparent opacity-50
-                transition-opacity duration-300"
-              ></span>
-            </span>
+      {/* Audience Section */}
+      <div ref={audienceRef} className="py-20 bg-slate-50/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-4 tracking-tight">
+              Built for E-commerce Success
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto font-light">
+              Whether you're selling on your own store or major marketplaces.
+            </p>
           </div>
-        </h2>
-        <p className="text-base sm:text-lg md:text-xl text-gray-600 font-light leading-relaxed max-w-lg mx-auto md:mx-0 mb-8 sm:mb-10 font-sans tracking-wide opacity-90">
-          Discover the tools that bring your creative vision to life.
-        </p>
-        <button
-          onClick={() => setShowPopup(true)}
-          className="inline-flex items-center px-8 sm:px-10 py-3 sm:py-4 bg-gray-900 text-white text-sm sm:text-base rounded-full shadow-lg
-            hover:bg-gray-800 transition-colors duration-300 font-light tracking-wider font-sans"
-          style={{ boxShadow: '0 8px 20px rgb(0 0 0 / 0.15)' }}
-        >
-          Launch App
-        </button>
-      </div>
-    </div>
-
-    {/* Mobile Optimized Popup */}
-    {showPopup && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
-          <button
-            onClick={() => setShowPopup(false)}
-            className="absolute top-3 right-3 text-slate-500 hover:text-slate-800 text-xl sm:text-base z-10"
-          >
-            ✕
-          </button>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-8 sm:mt-0">
-            {[
-              {
-                name: 'Background Removal',
-                key: 'bg-removal',
-                img: 'https://i.imgur.com/tcqYJZV.png',
-                href: 'background-removal', 
-              },
-              {
-                name: 'Upscaling',
-                key: 'upscaling',
-                img: 'https://i.imgur.com/XioAAH7.jpeg',
-                href: 'upscale', 
-              },
-              {
-                name: 'Generative Fill',
-                key: 'generative-fill',
-                img: 'https://i.imgur.com/LjEnkZx.jpeg',
-                href: 'enlarge', 
-              },
-              {
-                name: 'Object Removal',
-                key: 'object-removal',
-                img: 'https://i.imgur.com/MikJwxb.png',
-                href: 'object-removal', 
-              },
-              {
-                name: 'Text to Image',
-                key: 'text-to-image',
-                img: 'https://i.imgur.com/birXPAV.png',
-                href: 'image-generation', 
-              },
-            ].map((tool) => (
-              <div
-                key={tool.key}
-                className="border border-slate-200 rounded-xl p-3 sm:p-4 flex flex-col items-center text-center hover:shadow-md transition-shadow"
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {audience.map((item, index) => (
+              <div 
+                key={index}
+                className={`group relative bg-white backdrop-blur-sm border ${item.borderColor} rounded-2xl p-8 hover:shadow-xl hover:-translate-y-1 transition-all duration-500`}
               >
-                <div className="w-full h-24 sm:h-32 bg-slate-100 rounded-lg mb-3 sm:mb-4 overflow-hidden">
-                  <img
-                    src={tool.img}
-                    alt={tool.name}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
+                {/* Abstract Icon */}
+                <div className={`w-16 h-16 ${item.iconBg} rounded-2xl mb-6 relative overflow-hidden`}>
+                  {/* Animated lines pattern */}
+                  <div className="absolute inset-0 flex flex-col justify-center items-center gap-1">
+                    {item.lines.map((line, lineIndex) => (
+                      <div 
+                        key={lineIndex}
+                        className={`${line.width} h-0.5 ${line.color} rounded-full opacity-60 group-hover:opacity-100 transition-opacity duration-300`}
+                        style={{ animationDelay: line.delay }}
+                      />
+                    ))}
+                  </div>
+                  
+                  {/* Subtle glow effect */}
+                  <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-2 leading-tight">
-                  {tool.name}
+                
+                <h3 className="text-xl font-medium text-slate-900 mb-4 tracking-tight">
+                  {item.title}
                 </h3>
-                <a
-                  href={tool.href}
-                  className="px-3 sm:px-4 py-2 bg-slate-900 text-white text-xs sm:text-sm rounded-full hover:bg-slate-700 transition-colors"
-                >
-                  Try {tool.name}
-                </a>
+                <p className="text-slate-600 leading-relaxed">
+                  {item.description}
+                </p>
+                
+                {/* Subtle accent line */}
+                <div className={`w-12 h-0.5 ${item.lines[0].color} rounded-full mt-6 opacity-30 group-hover:opacity-60 group-hover:w-16 transition-all duration-300`}></div>
               </div>
             ))}
           </div>
         </div>
       </div>
-    )}
-  </div>
-</div>
 
-{/* Privacy Section - Mobile Optimized */}
-<div ref={featuresRef} className="py-16 sm:py-24 md:py-32 bg-slate-50/60 backdrop-blur-sm">
-  <div className="max-w-6xl mx-auto px-4 sm:px-6">
-    <div className="text-center mb-12 sm:mb-16 md:mb-20">
-      <h2 className="text-3xl sm:text-4xl md:text-5xl font-light text-slate-900 mb-4 sm:mb-6 tracking-tight">
-        Your <em className="italic">Privacy</em> Matters
-      </h2>
-      <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-light leading-relaxed px-4 sm:px-0">
-        We believe your creative work should remain private. That's why we've built our platform with privacy at its core.
-      </p>
-    </div>
-
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 sm:gap-10 md:gap-12">
-      {privacyFeatures.map((feature) => (
-        <div
-          key={feature.title}
-          className="feature-card text-center group opacity-0"
-        >
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-            <feature.icon className="text-slate-700" size={24} />
+      {/* Why Choose PixelPerfect */}
+      <div ref={whyChooseRef} className="py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-4 tracking-tight">
+              Why E-commerce Brands Choose Us
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto font-light">
+              Built specifically for online retail success.
+            </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-medium text-slate-900 mb-3 sm:mb-4">
-            {feature.title}
-          </h3>
-          <p className="text-slate-600 leading-relaxed text-sm sm:text-base">
-            {feature.description}
-          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {whyFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className="text-center group"
+              >
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                  <feature.icon className="text-slate-700" size={24} />
+                </div>
+                <h3 className="text-xl font-medium text-slate-900 mb-4">
+                  {feature.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
-    </div>
-  </div>
-</div>
+      </div>
+
+      {/* Pricing Section */}
+      <div ref={pricingRef} className="py-20 bg-slate-50/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-4 tracking-tight">
+              E-commerce Plans That Scale
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto font-light">
+              From startup stores to enterprise catalogs. Start free, scale as you grow.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {pricingPlans.map((plan, index) => (
+              <div
+                key={index}
+                className={`relative bg-white border rounded-2xl p-8 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+                  plan.popular 
+                    ? 'border-slate-900 shadow-lg' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-slate-900 text-white px-4 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                <div className="text-center mb-8">
+                  <h3 className="text-xl font-medium text-slate-900 mb-2">
+                    {plan.name}
+                  </h3>
+                  <div className="mb-4">
+                    <span className="text-4xl font-light text-slate-900">
+                      {plan.price}
+                    </span>
+                    <span className="text-slate-600">/{plan.period}</span>
+                  </div>
+                  <p className="text-slate-600">
+                    {plan.description}
+                  </p>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, featureIndex) => (
+                    <li key={featureIndex} className="flex items-center gap-3">
+                      <Check size={16} className="text-green-500 flex-shrink-0" />
+                      <span className="text-slate-600">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  className={`w-full py-3 px-6 rounded-xl font-medium transition-all duration-200 ${
+                    plan.popular
+                      ? 'bg-slate-900 text-white hover:bg-slate-800'
+                      : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
+                  }`}
+                >
+                  {plan.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div ref={faqRef} className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-4 tracking-tight">
+              E-commerce FAQ
+            </h2>
+            <p className="text-lg text-slate-600 font-light">
+              Everything you need to know about AI product image processing.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <div
+                key={index}
+                className="bg-slate-50/50 border border-slate-200/50 rounded-2xl overflow-hidden"
+              >
+                <button
+                  className="w-full p-6 text-left flex items-center justify-between hover:bg-slate-50 transition-colors duration-200"
+                  onClick={() => setOpenFAQ(openFAQ === index ? null : index)}
+                >
+                  <span className="text-lg font-medium text-slate-900">
+                    {faq.question}
+                  </span>
+                  <ChevronDown
+                    size={20}
+                    className={`text-slate-400 transition-transform duration-200 ${
+                      openFAQ === index ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                
+                {openFAQ === index && (
+                  <div className="px-6 pb-6">
+                    <p className="text-slate-600 leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Final CTA */}
+      <div className="py-20 bg-slate-50/50 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-light text-slate-900 mb-6 tracking-tight">
+            Ready to Transform Your Product Catalog?
+          </h2>
+          <p className="text-lg text-slate-600 mb-8 font-light">
+            Join thousands of e-commerce stores who trust PixelPerfect AI for professional product images.
+          </p>
+          <a
+            href="/background-removal"
+            className="inline-flex items-center gap-3 bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            Start Processing Products Now
+            <ArrowRight size={20} />
+          </a>
+        </div>
+      </div>
 
     </Layout>
   );

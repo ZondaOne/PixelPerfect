@@ -21,7 +21,7 @@ class ImageProcessingError(Exception):
     """Specific error for image processing failures."""
 
 # Use only u2netp model
-MODEL_NAME = "u2netp"
+MODEL_NAME = "isnet-general-use"
 
 _sessions_cache: Dict[str, Any] = {}
 _active_jobs: Set[str] = set()
