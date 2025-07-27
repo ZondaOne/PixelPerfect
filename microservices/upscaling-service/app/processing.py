@@ -126,14 +126,27 @@ class OptimizedUpscalingProcessor:
         # Load model on demand
         upsampler = self._load_model_on_demand(model_type)
         
-        # Decode image efficiently
+        # Decode image efficiently - CAMBIAR ESTA LÍNEA
         nparr = np.frombuffer(image_data, np.uint8)
-        input_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        input_image = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)  # ← CAMBIO AQUÍ
         
         if input_image is None:
             raise ValueError("Failed to decode input image")
         
-        original_shape = input_image.shape[:2]
+        # AGREGAR ESTAS LÍNEAS AQUÍ ↓
+        has_alpha = len(input_image.shape) == 3 and input_image.shape[2] == 4
+        alpha_channel = None
+        
+        if has_alpha:
+            # Separar RGB y Alpha
+            alpha_channel = input_image[:, :, 3]
+            input_rgb = input_image[:, :, :3]
+            logger.info("Image has transparency - preserving alpha channel")
+        else:
+            input_rgb = input_image
+        # HASTA AQUÍ ↑
+        
+        original_shape = input_rgb.shape[:2]  # ← CAMBIAR input_image por input_rgb
         
         # Resize if image is too large to prevent memory issues
         max_dimension = 2048 if is_premium else 1024
@@ -141,23 +154,40 @@ class OptimizedUpscalingProcessor:
         if max(h, w) > max_dimension:
             scale_factor = max_dimension / max(h, w)
             new_h, new_w = int(h * scale_factor), int(w * scale_factor)
-            input_image = cv2.resize(input_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            input_rgb = cv2.resize(input_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            # También resize del alpha si existe
+            if has_alpha and alpha_channel is not None:
+                alpha_channel = cv2.resize(alpha_channel, (new_w, new_h), interpolation=cv2.INTER_AREA)
             logger.info(f"Resized input from {w}x{h} to {new_w}x{new_h}")
         
-        # Process with upsampler
+        # Process with upsampler - CAMBIAR ESTA LÍNEA
         try:
-            output_image, _ = upsampler.enhance(input_image, outscale=None)
+            output_image, _ = upsampler.enhance(input_rgb, outscale=None)  # ← CAMBIO AQUÍ
         except Exception as e:
             logger.error(f"Enhancement failed: {e}")
             raise RuntimeError(f"Upscaling failed: {e}")
+        
+        # AGREGAR DESPUÉS DEL ENHANCEMENT:
+        if has_alpha and alpha_channel is not None:
+            # Redimensionar canal alpha al tamaño de salida
+            scale_factor = output_image.shape[0] / alpha_channel.shape[0]
+            new_alpha_size = (int(alpha_channel.shape[1] * scale_factor), 
+                            int(alpha_channel.shape[0] * scale_factor))
+            alpha_upscaled = cv2.resize(alpha_channel, new_alpha_size, interpolation=cv2.INTER_CUBIC)
+            
+            # Combinar RGB + Alpha
+            output_image = cv2.merge([output_image[:,:,0], output_image[:,:,1], 
+                                    output_image[:,:,2], alpha_upscaled])
+            logger.info("Alpha channel restored to upscaled image")
         
         # Convert and encode efficiently
         if output_image.dtype != np.uint8:
             output_image = np.clip(output_image, 0, 255).astype(np.uint8)
         
-        # Use JPEG for better compression and speed
-        encode_params = [cv2.IMWRITE_JPEG_QUALITY, 95]
-        success, buffer = cv2.imencode('.jpg', output_image, encode_params)
+        # CAMBIAR ESTAS LÍNEAS:
+        # Use PNG to preserve transparency
+        encode_params = [cv2.IMWRITE_PNG_COMPRESSION, 6]
+        success, buffer = cv2.imencode('.png', output_image, encode_params)
         
         if not success:
             raise RuntimeError("Failed to encode output image")

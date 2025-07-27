@@ -651,7 +651,7 @@ async def perform_image_enlargement(
 
         # Decodificar imagen
         nparr = np.frombuffer(image_bytes, np.uint8)
-        input_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        input_image = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
 
         if input_image is None:
             raise ValueError("Failed to decode image")

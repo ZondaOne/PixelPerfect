@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Maximize, Upload, CheckCircle, Sparkles, Star, Zap, Target, Shield } from 'lucide-react';
 import Layout from '../components/Layout';
 import Navbar from '../components/Navbar';
@@ -18,6 +18,63 @@ const UpscalePage: React.FC = () => {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [quality, setQuality] = useState<'FREE' | 'PREMIUM'>('FREE');
 
+
+  // Agregar después de los useState
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const preloadImage = urlParams.get('preloadImage');
+  
+  if (preloadImage) {
+    const imageUrl = decodeURIComponent(preloadImage);
+    setPreview(imageUrl);
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        console.error('❌ Could not get canvas context');
+        return;
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Asegurar que el canvas sea completamente transparente
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.imageSmoothingEnabled = false; // Evitar suavizado que puede agregar colores
+      
+      // NO hacer clearRect, usar fillStyle transparente
+      ctx.save();
+      ctx.globalAlpha = 0;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      
+      // Dibujar imagen con máxima fidelidad
+      ctx.globalAlpha = 1;
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
+      
+      // Convertir directamente sin compresión
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], 'processed-image.png', { 
+            type: 'image/png',
+            lastModified: Date.now()
+          });
+          setSelectedFile(file);
+          console.log('✅ Transparency-perfect image created');
+        }
+      }, 'image/png', 1.0);
+    };
+    
+    img.onerror = () => setError('Error loading image. Please select manually.');
+    img.crossOrigin = 'anonymous';
+    img.src = imageUrl;
+    
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}, []);
   // Enhanced animation system
   const { heroRef, uploaderRef, configRef, workflowRef, featuresRef } = useServiceAnimation({
     serviceType: 'upscale',
@@ -107,6 +164,8 @@ const UpscalePage: React.FC = () => {
       color: 'orange'
     }
   ];
+
+  
 
   return (
     <Layout>
