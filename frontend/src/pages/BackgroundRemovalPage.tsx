@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { Scissors, Upload, CheckCircle, Sparkles, Info, Zap, Target, Shield } from 'lucide-react';
 import Layout from '../components/Layout';
 import Navbar from '../components/Navbar';
@@ -19,7 +19,40 @@ const BackgroundRemovalPage: React.FC = () => {
   const [error, setError] = useState('');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
-  // Enhanced animation system
+  useEffect(() => {
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  
+  const savedImageData = localStorage.getItem('uploadedImageData');
+  const savedImageName = localStorage.getItem('uploadedImageName');
+  
+  if (savedImageData && savedImageName && !selectedFile) {
+    // Convertir base64 de vuelta a File
+    fetch(savedImageData)
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], savedImageName, { type: blob.type });
+        
+        
+        
+        handleFileSelect(file);
+        
+        
+        localStorage.removeItem('uploadedImageData');
+        localStorage.removeItem('uploadedImageName');
+        
+        console.log('✅ Image loaded from homepage and auto-processing started:', savedImageName);
+      })
+      .catch(err => {
+        console.error('❌ Error loading saved image:', err);
+       
+        localStorage.removeItem('uploadedImageData');
+        localStorage.removeItem('uploadedImageName');
+      });
+  }
+}, []);
+  
   const { heroRef, uploaderRef, workflowRef, featuresRef } = useServiceAnimation({
     serviceType: 'background-removal',
     intensity: 'medium'

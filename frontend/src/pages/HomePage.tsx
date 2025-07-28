@@ -19,11 +19,12 @@ import {
   Zap, 
   Target,
   Check,
-  ChevronDown,
-  Play,
-  Pause
+  ChevronDown
 } from 'lucide-react';
 import logo from '../assets/logo.png';
+import { motion } from 'framer-motion';
+import DragDropUploader from '../components/DragDropUploader';
+import { useNavigate } from 'react-router-dom';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -45,7 +46,38 @@ const HomePage: React.FC = () => {
   const whyChooseRef = useRef<HTMLDivElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const faqRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  const handleFileSelect = (file: File) => {
+  setUploadedFile(file);
+  const url = URL.createObjectURL(file);
+  setPreviewUrl(url);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (e.target?.result) {
+      // Guardar la imagen como base64 para que persista al navegar
+      localStorage.setItem('uploadedImageData', e.target.result as string);
+      localStorage.setItem('uploadedImageName', file.name);
+      
+      // Pequeño delay para mejor UX antes de navegar
+      setTimeout(() => {
+        navigate('/background-removal');
+      }, 500);
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+useEffect(() => {
+  return () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+}, [previewUrl]);
   // E-commerce focused services
   const services = [
     {
@@ -277,16 +309,7 @@ const HomePage: React.FC = () => {
     }
   ];
 
-  // Pipeline animation
-  useEffect(() => {
-    if (!isAnimating) return;
-    
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => (prev + 1) % pipelineSteps.length);
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [isAnimating, pipelineSteps.length]);
+  
 
   // Animation effects
   useEffect(() => {
@@ -491,175 +514,209 @@ const HomePage: React.FC = () => {
       </div>
 
       <div ref={pipelineRef} id="pipeline" className="py-24 bg-gradient-to-b from-slate-50 to-white">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-20">
-          <h2 className="text-4xl md:text-5xl font-semibold text-slate-900 mb-6 tracking-tight">
-            AI Processing Pipeline
-          </h2>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Our advanced AI technology transforms ordinary product photos into high-converting, professional images that drive sales.
-          </p>
+  <div className="max-w-7xl mx-auto px-6">
+    <div className="text-center mb-20">
+      <h2 className="text-4xl md:text-5xl font-semibold text-slate-900 mb-6 tracking-tight">
+        AI Processing Pipeline
+      </h2>
+      <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+        Our advanced AI technology transforms ordinary product photos into high-converting, professional images that drive sales.
+      </p>
+    </div>
+
+    {pipelineSteps.map((step, index) => {
+  const isEven = index % 2 === 0;
+  const isTransparentStep = index === 1;
+
+  return (
+   <motion.div
+  key={index}
+  initial={{ opacity: 0, x: isEven ? -100 : 100 }}
+  whileInView={{ opacity: 1, x: 0 }}
+  viewport={{ once: true, amount: 0.4 }}
+  transition={{ duration: 0.7, ease: 'easeOut' }}
+  className={`flex flex-col-reverse lg:flex-row ${!isEven ? 'lg:flex-row-reverse' : ''} items-center gap-16`}
+>
+  <div className="w-full lg:w-1/2">
+    <div className="bg-white/30 backdrop-blur-2xl p-10 rounded-3xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.1)]">
+      <div className="text-sm text-blue-600 font-semibold mb-3 uppercase tracking-wider">
+        {step.tech}
+      </div>
+      <h3 className="text-2xl font-semibold text-slate-900 mb-4">{step.title}</h3>
+      <p className="text-slate-600 leading-relaxed mb-6">{step.description}</p>
+
+      <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/20">
+        <div className="text-center">
+          <div className="font-semibold text-slate-900 text-lg">{step.metrics.quality}</div>
+          <div className="text-slate-500 text-sm">Quality</div>
         </div>
-
-        {/* Pipeline Controls */}
-        <div className="flex justify-center mb-16">
-          <button
-            onClick={() => setIsAnimating(!isAnimating)}
-            className="flex items-center gap-3 px-8 py-4 bg-white/80 backdrop-blur-xl hover:bg-white/90 rounded-2xl text-slate-700 border border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            {isAnimating ? <Pause size={18} /> : <Play size={18} />}
-            {isAnimating ? 'Pause' : 'Play'} Pipeline
-          </button>
+        <div className="text-center">
+          <div className="font-semibold text-slate-900 text-lg">{step.metrics.conversion}</div>
+          <div className="text-slate-500 text-sm">Conversion</div>
         </div>
-
-        {/* Pipeline Steps */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-20">
-          {pipelineSteps.map((step, index) => (
-            <div
-              key={index}
-              className={`relative bg-white/70 backdrop-blur-2xl rounded-3xl overflow-hidden transition-all duration-700 border border-white/20 shadow-2xl hover:shadow-3xl ${
-                currentStep === index 
-                  ? 'ring-1 ring-blue-500/30 shadow-blue-500/20 transform scale-[1.03]' 
-                  : 'hover:transform hover:scale-[1.02]'
-              }`}
-            >
-              {/* Large Image Container */}
-              <div className="relative h-80 overflow-hidden bg-gradient-to-br from-slate-50/50 to-slate-100/50 backdrop-blur-sm">
-                <div className="absolute inset-0 flex items-center justify-center p-8">
-                  {index === 0 && (
-                    <img 
-                      src="https://images.unsplash.com/photo-1696603971992-5c7aa2a3f290?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" 
-                      alt="Original product with background"
-                      className="w-64 h-56 object-contain"
-                    />
-                  )}
-                  {index === 1 && (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      {/* Subtle transparent background pattern */}
-                      <div className="absolute inset-0 opacity-30" style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23e2e8f0' fill-opacity='0.5'%3E%3Crect x='0' y='0' width='12' height='12'/%3E%3Crect x='12' y='12' width='12' height='12'/%3E%3C/g%3E%3Cg fill='%23f1f5f9' fill-opacity='0.5'%3E%3Crect x='12' y='0' width='12' height='12'/%3E%3Crect x='0' y='12' width='12' height='12'/%3E%3C/g%3E%3C/svg%3E")`,
-                        backgroundSize: '24px 24px'
-                      }}></div>
-                      <img 
-                        src="https://res.cloudinary.com/drzokg7bb/image/upload/v1753560508/pixelperfect/processed/ff08b7bb-1108-4563-80d5-2f3082cf17de_bg_removed.png" 
-                        alt="Product with background removed"
-                        className="w-64 h-56 object-contain z-10 relative"
-                      />
-                    </div>
-                  )}
-                  {index === 2 && (
-                    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-br from-white/20 to-slate-50/30">
-                      <img 
-                        src="https://res.cloudinary.com/drzokg7bb/image/upload/v1753560508/pixelperfect/processed/ff08b7bb-1108-4563-80d5-2f3082cf17de_bg_removed.png" 
-                        alt="Upscaled high-quality product"
-                        className="w-full h-full object-contain scale-110"
-                        style={{
-                          filter: 'contrast(1.12) saturate(1.2) brightness(1.08) drop-shadow(0 10px 30px rgba(0,0,0,0.1))'
-                        }}
-                      />
-                      {/* Quality indicator */}
-                      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-slate-700">
-                        Ready to sell
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Processing indicator */}
-                {currentStep === index && (
-                  <div className="absolute top-6 left-6 bg-blue-600/90 backdrop-blur-xl text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 shadow-lg">
-                    Processing
-                  </div>
-                )}
-
-                {/* Quality badges */}
-                <div className="absolute top-6 right-6">
-                  {index === 0 && (
-                    <span className="bg-orange-100/80 backdrop-blur-xl text-orange-700 px-4 py-2 rounded-full text-sm font-medium border border-white/30 shadow-md">
-                      Original
-                    </span>
-                  )}
-                  {index === 2 && (
-                    <span className="bg-green-100/80 backdrop-blur-xl text-green-700 px-4 py-2 rounded-full text-sm font-medium border border-white/30 shadow-md">
-                      Enhanced
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Step Info */}
-              <div className="p-8 bg-white/40 backdrop-blur-xl">
-                <div className="text-sm text-blue-600 font-semibold mb-3 uppercase tracking-wider">{step.tech}</div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-slate-600 leading-relaxed mb-6">
-                  {step.description}
-                </p>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/20">
-                  <div className="text-center">
-                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.quality}</div>
-                    <div className="text-slate-500 text-sm">Quality</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.conversion}</div>
-                    <div className="text-slate-500 text-sm">Conversion</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-slate-900 text-lg">{step.metrics.engagement}</div>
-                    <div className="text-slate-500 text-sm">Engagement</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step number. */}
-              <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-10 h-10 bg-slate-900/90 backdrop-blur-xl text-white rounded-full flex items-center justify-center text-sm font-semibold shadow-xl border border-white/10">
-                {index + 1}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Results Summary - Apple Minimalist */}
-        <div className="relative bg-white/60 backdrop-blur-3xl rounded-[2.5rem] p-20 text-center border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="text-2xl font-light text-slate-900 mb-20 tracking-tight">
-              Results
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-20">
-              <div className="group">
-                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-green-600">
-                  +185%
-                </div>
-                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
-                  Conversion Rate
-                </div>
-              </div>
-              <div className="group">
-                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-blue-600">
-                  -45%
-                </div>
-                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
-                  Return Rate
-                </div>
-              </div>
-              <div className="group">
-                <div className="text-7xl font-extralight text-slate-900 mb-4 tracking-tighter transition-all duration-700 group-hover:text-purple-600">
-                  4×
-                </div>
-                <div className="text-slate-600 font-light text-base tracking-wide uppercase">
-                  Resolution
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="text-center">
+          <div className="font-semibold text-slate-900 text-lg">{step.metrics.engagement}</div>
+          <div className="text-slate-500 text-sm">Engagement</div>
         </div>
       </div>
     </div>
-  
+  </div>
 
+  <div className="w-full lg:w-1/2 relative rounded-3xl overflow-hidden 
+                  border border-white/30 bg-white/30 backdrop-blur-2xl
+                  shadow-[0_10px_40px_rgba(0,0,0,0.1)] flex justify-center items-center p-6">
+    {isTransparentStep && (
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: `linear-gradient(45deg, #e2e8f0 25%, transparent 25%), 
+                            linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), 
+                            linear-gradient(45deg, transparent 75%, #e2e8f0 75%), 
+                            linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)`,
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+        }}
+      />
+    )}
+
+    <img
+      src={
+        index === 0
+          ? "https://images.unsplash.com/photo-1696603971992-5c7aa2a3f290?q=80&w=1600&auto=format&fit=crop"
+          : "https://res.cloudinary.com/drzokg7bb/image/upload/v1753560508/pixelperfect/processed/ff08b7bb-1108-4563-80d5-2f3082cf17de_bg_removed.png"
+      }
+      alt={`Step ${index + 1}`}
+      className={`relative z-10 rounded-3xl max-h-[350px] ${
+        index === 0 ? 'object-cover' : 'object-contain'
+      }`}
+      style={{ maxWidth: '100%', margin: '0 auto', display: 'block' }}
+    />
+
+    {(index === 0 || index === 2) && (
+      <div className="absolute top-4 right-4 z-20">
+        <span className={`px-4 py-2 text-sm font-medium rounded-full shadow-md backdrop-blur-xl border border-white/30 ${
+          index === 0 ? 'bg-orange-100/80 text-orange-700' : 'bg-green-100/80 text-green-700'
+        }`}>
+          {index === 0 ? 'Original' : 'Enhanced'}
+        </span>
+      </div>
+    )}
+  </div>
+</motion.div>
+
+
+  );
+})}
+
+  </div>
+</div>
+
+   {/* Try It Yourself Section */}
+<div className="py-24 bg-gradient-to-b from-white to-slate-50">
+  <div className="max-w-4xl mx-auto px-6">
+    <div className="text-center mb-16">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+      >
+        <h2 className="text-4xl md:text-5xl font-semibold text-slate-900 mb-6 tracking-tight">
+          Try it yourself
+        </h2>
+        <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          Upload any product image and see our AI magic in action. 
+          Experience professional-grade processing in seconds.
+        </p>
+      </motion.div>
+    </div>
+
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8, delay: 0.2 }}
+      className="bg-white/60 backdrop-blur-xl rounded-3xl p-8 md:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-white/30"
+    >
+      <div className="max-w-2xl mx-auto">
+        <DragDropUploader
+          onFileSelect={handleFileSelect}
+          accept="image/*"
+          maxSize={10}
+          preview={previewUrl}
+          className="w-full"
+        />
+        
+        {/* Additional info */}
+        {/* Upload status or CTA */}
+        <div className="mt-8 text-center">
+          {uploadedFile ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-200 animate-pulse">
+              <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+              Redirecting to editor...
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200">
+              <Sparkles size={16} />
+              Free background removal • No signup required
+            </div>
+          )}
+        </div>
+
+        {/* Processing steps preview */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <FileImage className="w-6 h-6 text-blue-600" />
+            </div>
+            <h4 className="font-semibold text-slate-900 mb-2">Upload</h4>
+            <p className="text-sm text-slate-600">Drag, drop, or paste your product image</p>
+          </div>
+          
+          <div className="text-center">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Wand2 className="w-6 h-6 text-purple-600" />
+            </div>
+            <h4 className="font-semibold text-slate-900 mb-2">Process</h4>
+            <p className="text-sm text-slate-600">AI removes background instantly</p>
+          </div>
+          
+          <div className="text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Star className="w-6 h-6 text-green-600" />
+            </div>
+            <h4 className="font-semibold text-slate-900 mb-2">Download</h4>
+            <p className="text-sm text-slate-600">Get your professional result</p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+
+    {/* Trust indicators */}
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8, delay: 0.4 }}
+      className="mt-16 text-center"
+    >
+      <div className="flex flex-wrap justify-center items-center gap-8 text-slate-500">
+        <div className="flex items-center gap-2">
+          <Shield size={16} />
+          <span className="text-sm">Secure processing</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Zap size={16} />
+          <span className="text-sm">Under 10 seconds</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Check size={16} />
+          <span className="text-sm">No watermarks</span>
+        </div>
+      </div>
+    </motion.div>
+  </div>
+</div>
 
       {/* Services Section */}
       <div ref={servicesRef} id="services" className="py-20 bg-slate-50/50 backdrop-blur-sm">

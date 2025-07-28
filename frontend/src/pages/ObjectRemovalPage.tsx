@@ -23,7 +23,7 @@ export interface ObjectRemovalConfig {
   };
 }
 
-// Interfaz para las dimensiones de la imagen
+
 interface ImageDimensions {
   original: { width: number; height: number };
   preview: { width: number; height: number };
@@ -40,7 +40,7 @@ const ObjectRemovalPage: React.FC = () => {
     quality: 'FREE'
   });
   
-  // Estado para las dimensiones de la imagen
+
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
 
   // Enhanced animation system
@@ -54,8 +54,7 @@ const ObjectRemovalPage: React.FC = () => {
     
     setSelectedFile(file);
     setError('');
-    
-    // Solo resetear config si es un archivo diferente
+ 
     if (isDifferentFile) {
       setConfig({
         method: 'BOUNDING_BOX',
@@ -69,12 +68,12 @@ const ObjectRemovalPage: React.FC = () => {
       const imageUrl = reader.result as string;
       setPreview(imageUrl);
       
-      // Obtener las dimensiones originales de la imagen
+   
       const img = new Image();
       img.onload = () => {
         setImageDimensions({
           original: { width: img.naturalWidth, height: img.naturalHeight },
-          preview: { width: 0, height: 0 } // Se actualizará en ObjectRemoval
+          preview: { width: 0, height: 0 } 
         });
       };
       img.src = imageUrl;
@@ -83,9 +82,9 @@ const ObjectRemovalPage: React.FC = () => {
   };
 
   const handleConfigChange = (newConfig: ObjectRemovalConfig, previewDimensions?: { width: number; height: number }) => {
-    console.log('Config updated:', newConfig); // Debug
+    console.log('Config updated:', newConfig); 
     
-    // Actualizar las dimensiones del preview si se proporcionan
+
     if (previewDimensions && imageDimensions) {
       setImageDimensions(prev => prev ? {
         ...prev,
@@ -110,7 +109,7 @@ const ObjectRemovalPage: React.FC = () => {
     return true;
   };
 
-  // Función para escalar coordenadas del preview a la imagen original
+
   const scaleCoordinatesToOriginal = (previewCoords: {x: number, y: number, width: number, height: number}): {x: number, y: number, width: number, height: number} => {
     if (!imageDimensions) {
       console.warn('No image dimensions available, returning original coordinates');
@@ -161,18 +160,18 @@ const ObjectRemovalPage: React.FC = () => {
       console.log('Uploading with config:', config); // Debug
       console.log('Image dimensions:', imageDimensions); // Debug
       
-      // Preparar la configuración para el envío
+  
       const uploadConfig: any = {
         method: config.method,
         quality: config.quality || 'FREE',
       };
 
-      // Escalar coordenadas si existen
+ 
       if (config.coordinates) {
         uploadConfig.coordinates = scaleCoordinatesToOriginal(config.coordinates);
       }
 
-      // Agregar detection settings si existen
+  
       if (config.detectionSettings) {
         uploadConfig.detectionSettings = config.detectionSettings;
       }
@@ -180,7 +179,7 @@ const ObjectRemovalPage: React.FC = () => {
       console.log('Final upload config:', {
         ...uploadConfig,
         mask: uploadConfig.mask ? `base64 string (${uploadConfig.mask.length} chars)` : undefined
-      }); // Debug sin mostrar toda la base64
+      }); 
 
       const response = await uploadImageAndCreateJob(
         selectedFile, 
@@ -207,7 +206,7 @@ const ObjectRemovalPage: React.FC = () => {
         response: err.response
       });
       
-      // Mostrar error más específico
+
       if (err.response) {
         setError(`Server error: ${err.response.status} - ${err.response.statusText}`);
       } else if (err.message) {

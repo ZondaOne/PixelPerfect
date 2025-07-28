@@ -77,7 +77,7 @@ const DragDropUploader: React.FC<DragDropUploaderProps> = ({
     }
   }, [onFileSelect, validateFile]);
 
-  // 👇 Nueva función para manejar el paste
+  
   const handlePaste = useCallback((e: ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -95,10 +95,10 @@ const DragDropUploader: React.FC<DragDropUploaderProps> = ({
     }
   }, [onFileSelect, validateFile]);
 
-  // 👇 useEffect para agregar/remover el event listener
+ 
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
-      // Solo procesar si el contenedor está enfocado o si no hay un input enfocado
+    
       const activeElement = document.activeElement;
       const isInputFocused = activeElement && (
         activeElement.tagName === 'INPUT' || 
