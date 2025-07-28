@@ -16,6 +16,7 @@ export enum JobStatusEnum {
   FAILED = 'FAILED',
   CANCELLED = 'CANCELLED',
   RETRYING = 'RETRYING',
+  UPLOADING = 'UPLOADING'
 }
 
 export interface JobResponseDTO {

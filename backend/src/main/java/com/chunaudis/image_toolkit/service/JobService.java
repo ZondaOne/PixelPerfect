@@ -31,7 +31,6 @@ import com.chunaudis.image_toolkit.storage.CloudinaryStorageService;
 import jakarta.persistence.EntityNotFoundException;
 
 @Service
-
 public class JobService {
     private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
@@ -59,53 +58,125 @@ public class JobService {
         this.cloudinaryCleanupService = cloudinaryCleanupService;
     }
 
-   @Retryable(
-    value = { Exception.class },
-    maxAttempts = 3,
-    backoff = @Backoff(delay = 2000) // Espera 2 segundos entre reintentos
-)
-@Transactional
-public Job createAndDispatchJob(Image image, JobTypeEnum jobType, String imageStoragePath, Map<String, Object> jobConfig, UUID userId) {
-    // User lookup - reuse from image entity to avoid duplicate query
-    User user = image.getUser();
-    
-    // Create the job with all properties in one batch
-    Job job = new Job();
-    job.setUser(user);
-    job.setOriginalImage(image);
-    job.setJobType(jobType);
-    job.setStatus(JobStatusEnum.QUEUED);
-    job.setJobConfig(jobConfig != null ? convertMapToJsonString(jobConfig) : null);
-
-    Job savedJob = jobRepository.save(job);
-    log.info("Created job {} with status QUEUED", savedJob.getJobId());
-
-    // Prepare RabbitMQ message
-    JobMessageDTO message = new JobMessageDTO(
-            savedJob.getJobId(),
-            image.getImageId(),
-            imageStoragePath,
-            jobType,
-            jobConfig
-    );
-
-    // Publish message with error handling
-    try {
-        jobPublisherService.publishJob(message);
-        log.info("Dispatched job {} to RabbitMQ", savedJob.getJobId());
-    } catch (Exception e) {
-        log.error("Failed to dispatch job {} to RabbitMQ: {}", savedJob.getJobId(), e.getMessage(), e);
+    /**
+     * NEW: Creates job instantly without dispatching - for immediate UI response
+     * This allows the UI to show processing state immediately
+     */
+    @Transactional
+    public Job createJob(Image image, JobTypeEnum jobType, Map<String, Object> jobConfig, UUID userId) {
+        User user = image.getUser();
         
-        // Update status to failed in single operation
-        savedJob.setStatus(JobStatusEnum.FAILED);
-        jobRepository.save(savedJob);
+        Job job = new Job();
+        job.setUser(user);
+        job.setOriginalImage(image);
+        job.setJobType(jobType);
+        job.setStatus(JobStatusEnum.UPLOADING); // Start with UPLOADING status
+        job.setJobConfig(jobConfig != null ? convertMapToJsonString(jobConfig) : null);
+
+        Job savedJob = jobRepository.save(job);
+        log.info("Created job {} with status UPLOADING for instant response", savedJob.getJobId());
         
-        // Re-throw for retry mechanism
-        throw e;
+        return savedJob;
     }
 
-    return savedJob;
-}
+    /**
+     * NEW: Updates job status with message - for upload progress tracking
+     */
+    @Transactional
+    public void updateJobStatus(UUID jobId, JobStatusEnum status, String message) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new EntityNotFoundException("Job not found with ID: " + jobId));
+        
+        job.setStatus(status);
+        if (message != null) {
+            job.setErrorMessage(message); // Reusing errorMessage field for general messages
+        }
+        
+        // Set timestamps based on status
+        if (status == JobStatusEnum.PROCESSING && job.getStartedAt() == null) {
+            job.setStartedAt(OffsetDateTime.now());
+        }
+        
+        if (status == JobStatusEnum.COMPLETED || status == JobStatusEnum.FAILED) {
+            job.setCompletedAt(OffsetDateTime.now());
+        }
+        
+        jobRepository.save(job);
+        log.info("Updated job {} to status {} with message: {}", jobId, status, message);
+    }
+
+    /**
+     * NEW: Dispatches job for processing after upload is complete
+     */
+    @Retryable(
+        value = { Exception.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 2000)
+    )
+    @Transactional
+    public void dispatchJobForProcessing(Job job, String imageStoragePath) {
+        log.info("Dispatching job {} for processing after successful upload", job.getJobId());
+        
+        // Update status to QUEUED
+        job.setStatus(JobStatusEnum.QUEUED);
+        jobRepository.save(job);
+        
+        // Prepare RabbitMQ message
+        JobMessageDTO message = new JobMessageDTO(
+                job.getJobId(),
+                job.getOriginalImage().getImageId(),
+                imageStoragePath,
+                job.getJobType(),
+                parseJobConfig(job.getJobConfig())
+        );
+
+        // Publish message with error handling
+        try {
+            jobPublisherService.publishJob(message);
+            log.info("Successfully dispatched job {} to RabbitMQ for processing", job.getJobId());
+        } catch (Exception e) {
+            log.error("Failed to dispatch job {} to RabbitMQ: {}", job.getJobId(), e.getMessage(), e);
+            
+            // Update status to failed
+            job.setStatus(JobStatusEnum.FAILED);
+            job.setErrorMessage("Failed to queue job for processing: " + e.getMessage());
+            jobRepository.save(job);
+            
+            // Re-throw for retry mechanism
+            throw e;
+        }
+    }
+
+    /**
+     * NEW: Saves job entity - utility method for ImageService
+     */
+    @Transactional
+    public Job saveJob(Job job) {
+        return jobRepository.save(job);
+    }
+
+    /**
+     * ORIGINAL: Legacy method for backward compatibility
+     * Now internally uses the new separated approach
+     */
+    @Retryable(
+        value = { Exception.class },
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 2000)
+    )
+    @Transactional
+    public Job createAndDispatchJob(Image image, JobTypeEnum jobType, String imageStoragePath, Map<String, Object> jobConfig, UUID userId) {
+        // Create job
+        Job job = createJob(image, jobType, jobConfig, userId);
+        
+        // Immediately dispatch (for cases where upload is already done, like image generation)
+        if (imageStoragePath != null) {
+            dispatchJobForProcessing(job, imageStoragePath);
+        }
+        
+        return job;
+    }
+
     @Transactional
     public Job updateJobStatus(UUID jobId, JobStatusUpdateRequestDTO updateRequest) {
         Job job = jobRepository.findById(jobId)
@@ -138,7 +209,6 @@ public Job createAndDispatchJob(Image image, JobTypeEnum jobType, String imageSt
             processedImage.setProcessedFilename(filename);
             
             // Set placeholder values for filesize, width, height
-            // TODO: These should be computed from the actual image file or from Cloudinary API
             processedImage.setProcessedFilesizeBytes(10000L); // Placeholder
             processedImage.setProcessedWidth(800); // Placeholder
             processedImage.setProcessedHeight(600); // Placeholder
@@ -197,6 +267,21 @@ public Job createAndDispatchJob(Image image, JobTypeEnum jobType, String imageSt
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             log.warn("Error converting map to JSON string for job config/params", e);
             return "{}"; // Empty JSON object as fallback
+        }
+    }
+
+    // Helper to parse JSON job config back to Map
+    private Map<String, Object> parseJobConfig(String jobConfigJson) {
+        if (jobConfigJson == null || jobConfigJson.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return objectMapper.readValue(jobConfigJson, Map.class);
+        } catch (Exception e) {
+            log.warn("Error parsing job config JSON: {}", jobConfigJson, e);
+            return null;
         }
     }
 
