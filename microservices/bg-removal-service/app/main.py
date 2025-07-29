@@ -244,73 +244,94 @@ async def process_message(message: AbstractIncomingMessage) -> None:
 async def start_rabbitmq_consumer() -> None:
     """
     Connect to RabbitMQ and start consuming messages.
-    Implements retry logic for connection failures.
+    Implements retry logic for connection failures and automatic reconnection.
     """
     global rabbitmq_connection
     
-    retry_delay = 5  # seconds
-    max_retries = 12  # 1 minute at 5 second intervals
-    retries = 0
-    
-    while retries < max_retries:
-        try:
-            # Connect to RabbitMQ
-            logger.info(f"Connecting to RabbitMQ at {RABBITMQ_URL}")
-            
-            rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
-            
-            # Create a channel
-            channel = await rabbitmq_connection.channel()
-            
-            # Set QoS to process one message at a time
-            await channel.set_qos(prefetch_count=1)
-            
-            # Declare the exchange
-            exchange = await channel.declare_exchange(
-                CONSUME_EXCHANGE_NAME,
-                aio_pika.ExchangeType.TOPIC,
-                durable=True
-            )
-            
-            # Declare the queue
-            queue = await channel.declare_queue(
-                CONSUME_QUEUE_NAME,
-                durable=True
-            )
-            
-            # Bind the queue to the exchange using the routing key
-            await queue.bind(
-                exchange=exchange,
-                routing_key=CONSUME_ROUTING_KEY
-            )
-            
-            logger.info(f"Connected to RabbitMQ, consuming from queue: {CONSUME_QUEUE_NAME}")
-            logger.info("Cloudinary integration enabled for image processing")
-            
-            # Start consuming messages
-            await queue.consume(process_message)
-            
-            # Keep the connection alive
-            while True:
-                await asyncio.sleep(1)
-                if rabbitmq_connection.is_closed:
-                    break
-            
-            logger.info("RabbitMQ connection closed")
-            
-        except aio_pika.exceptions.AMQPError as e:
-            logger.error(f"RabbitMQ connection error: {e}")
-            
-            retries += 1
-            
-            if retries < max_retries:
-                logger.info(f"Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})")
-                await asyncio.sleep(retry_delay)
-            else:
-                logger.error(f"Failed to connect to RabbitMQ after {max_retries} attempts")
-                break
+    while True:  # Loop principal para reconexión automática
+        retry_delay = 5  # seconds
+        max_retries = 12  # 1 minute at 5 second intervals
+        retries = 0
+        
+        while retries < max_retries:
+            try:
+                # Connect to RabbitMQ
+                logger.info(f"Connecting to RabbitMQ at {RABBITMQ_URL}")
                 
-        except Exception as e:
-            logger.error(f"Unexpected error in RabbitMQ consumer: {e}")
-            logger.error(traceback.format_exc())
-            break
+                rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
+                
+                # Create a channel
+                channel = await rabbitmq_connection.channel()
+                
+                # Set QoS to process one message at a time
+                await channel.set_qos(prefetch_count=1)
+                
+                # Declare the exchange
+                exchange = await channel.declare_exchange(
+                    CONSUME_EXCHANGE_NAME,
+                    aio_pika.ExchangeType.TOPIC,
+                    durable=True
+                )
+                
+                # Declare the queue
+                queue = await channel.declare_queue(
+                    CONSUME_QUEUE_NAME,
+                    durable=True
+                )
+                
+                # Bind the queue to the exchange using the routing key
+                await queue.bind(
+                    exchange=exchange,
+                    routing_key=CONSUME_ROUTING_KEY
+                )
+                
+                logger.info(f"Connected to RabbitMQ, consuming from queue: {CONSUME_QUEUE_NAME}")
+                logger.info("Cloudinary integration enabled for image processing")
+                
+                # Start consuming messages
+                await queue.consume(process_message)
+                
+                # Reset retry counter on successful connection
+                retries = 0
+                
+                # Keep the connection alive with better monitoring
+                try:
+                    while not rabbitmq_connection.is_closed:
+                        await asyncio.sleep(10)  # Check every 10 seconds
+                        
+                        # Heartbeat check - try to get connection info
+                        try:
+                            await rabbitmq_connection.channel()
+                        except:
+                            logger.warning("Connection heartbeat failed, breaking loop")
+                            break
+                            
+                except asyncio.CancelledError:
+                    logger.info("Consumer task cancelled")
+                    break
+                
+                logger.warning("RabbitMQ connection lost, attempting to reconnect...")
+                break  # Sale del retry loop para reconectar
+                
+            except aio_pika.exceptions.AMQPError as e:
+                logger.error(f"RabbitMQ connection error: {e}")
+                
+                retries += 1
+                
+                if retries < max_retries:
+                    logger.info(f"Retrying in {retry_delay} seconds... (Attempt {retries}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(f"Failed to connect to RabbitMQ after {max_retries} attempts, waiting 60s before retry")
+                    await asyncio.sleep(60)  # Wait longer before trying the whole process again
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Unexpected error in RabbitMQ consumer: {e}")
+                logger.error(tracecode.format_exc())
+                await asyncio.sleep(30)  # Wait before retrying
+                break
+        
+       
+        logger.info("Attempting to reconnect to RabbitMQ...")
+        await asyncio.sleep(5)
