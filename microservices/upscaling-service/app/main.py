@@ -116,14 +116,19 @@ async def send_status_update(job_id: str, status_update: JobStatusUpdateRequestD
         logger.error("HTTP client not initialized")
         return False
     
-    callback_url = SPRING_BOOT_CALLBACK_URL_TEMPLATE.format(job_id=job_id)
+    # Construct callback URL - template no longer includes /status
+    callback_url = f"{SPRING_BOOT_CALLBACK_URL_TEMPLATE.format(job_id=job_id)}/status"
     
     try:
         logger.info(f"Sending {status_update.status} callback for job {job_id} to {callback_url}")
         
         response = await http_client.post(
             callback_url,
-            json=status_update.dict(exclude_none=True)
+            json=status_update.dict(exclude_none=True),
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
         )
         
         # Log the actual payload being sent

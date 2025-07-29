@@ -25,10 +25,10 @@ CONSUME_QUEUE_NAME = os.getenv("CONSUME_QUEUE_NAME", "q_upscaling")
 CONSUME_EXCHANGE_NAME = os.getenv("CONSUME_EXCHANGE_NAME", "image_processing_exchange")
 CONSUME_ROUTING_KEY = os.getenv("CONSUME_ROUTING_KEY", "job.upscaling")
 
-# Spring Boot Callback Configuration
+# Spring Boot Callback Configuration - REMOVED /status from template
 SPRING_BOOT_CALLBACK_URL_TEMPLATE = os.getenv(
     "SPRING_BOOT_CALLBACK_URL_TEMPLATE",
-    "http://localhost:8080/api/v1/jobs/{job_id}/status"
+    "https://backend-1li0.onrender.com/api/v1/jobs/{job_id}"
 )
 
 # Service Configuration

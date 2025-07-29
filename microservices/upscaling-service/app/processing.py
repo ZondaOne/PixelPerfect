@@ -1,332 +1,289 @@
-"""
-Memory-optimized image processing module for upscaling with Real-ESRGAN integration.
-Designed to use <512MB RAM with faster processing.
-"""
-
-import logging
 import os
-import cv2
-import numpy as np
-from typing import Dict, Tuple, Any, Optional
-import urllib.request
-from pathlib import Path
-from realesrgan import RealESRGANer
-from basicsr.archs.rrdbnet_arch import RRDBNet
-import torch
+import time
+import threading
 import gc
+import io
+import requests
+import numpy as np
+from PIL import Image, ImageFilter
+import onnxruntime as ort
+
 from app.cloudinary_service import CloudinaryService
-from app.config import MODELS_DIR
-from app.local_image_processing import LocalImageProcessor
 
-logger = logging.getLogger(__name__)
+class ImageProcessingError(Exception):
+    pass
 
-# Global model cache - only one model at a time
-_current_model = None
-_current_model_name = None
+# Model URLs and paths
+FREE_MODEL_URL = os.getenv(
+    "FREE_UPSCALE_MODEL_URL",
+    "https://huggingface.co/spaces/Wuvin/Unique3D/resolve/main/ckpt/realesrgan-x4.onnx"
+)
 
-# Check GPU availability once
-CUDA_AVAILABLE = torch.cuda.is_available()
-if CUDA_AVAILABLE:
-    logger.info(f"GPU available: {torch.cuda.get_device_name(0)}")
-else:
-    logger.info("Using CPU for processing")
+FREE_MODEL_PATH = os.getenv("FREE_UPSCALE_MODEL_PATH", "models/realesrgan_free.onnx")
 
-class OptimizedUpscalingProcessor:
-    """Memory-efficient upscaling processor that loads models on-demand."""
+# ULTRA conservative settings for memory
+MAX_IMAGE_DIMENSION = 200  # Reducido aún más
+THUMBNAIL_DIMENSION = 300  # Reducido para menos memoria
+JPEG_QUALITY = 85  # Slightly lower for smaller files
+MAX_CONCURRENT_JOBS = 1
+
+_active_jobs = set()
+_jobs_lock = threading.Lock()
+_session = None
+
+def download_model(url: str, path: str):
+    """Download ONNX model if not exists"""
+    if os.path.exists(path):
+        return
+        
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        print("Downloading model...")
+        resp = requests.get(url, stream=True, timeout=30)
+        resp.raise_for_status()
+        with open(path, 'wb') as f:
+            for chunk in resp.iter_content(4096):  # Smaller chunks
+                if chunk:
+                    f.write(chunk)
+        print(f"Model downloaded ({os.path.getsize(path)//1024//1024}MB)")
+    except Exception as e:
+        if os.path.exists(path):
+            os.remove(path)
+        raise ImageProcessingError(f"Download failed: {e}")
+
+def get_session() -> ort.InferenceSession:
+    """Get memory-optimized ONNX session"""
+    global _session
     
-    MODEL_CONFIGS = {
-        'free': {
-            'url': 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth',
-            'scale': 2,
-            'filename': 'RealESRGAN_x2plus.pth',
-            'blocks': 23
-        },
-        'premium': {
-            'url': 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth',
-            'scale': 4,
-            'filename': 'RealESRGAN_x4plus.pth',
-            'blocks': 23
-        }
-    }
+    if _session is None:
+        download_model(FREE_MODEL_URL, FREE_MODEL_PATH)
+        
+        # Ultra memory-conservative settings
+        opts = ort.SessionOptions()
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+        opts.enable_mem_pattern = False
+        opts.enable_cpu_mem_arena = False
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        
+        # Limit memory usage
+        providers = [
+            ('CPUExecutionProvider', {
+                'arena_extend_strategy': 'kSameAsRequested',
+                'enable_cpu_mem_arena': False
+            })
+        ]
+        
+        _session = ort.InferenceSession(FREE_MODEL_PATH, opts, providers)
     
-    def __init__(self):
-        """Initialize without loading any models to save memory."""
-        os.makedirs(MODELS_DIR, exist_ok=True)
-        self._ensure_models_downloaded()
+    return _session
+
+def upscale_simple(img_arr: np.ndarray) -> np.ndarray:
+    """Memory-optimized upscaling with immediate cleanup"""
+    session = get_session()
     
-    def _ensure_models_downloaded(self):
-        """Pre-download models if needed, but don't load them."""
-        for model_key, config in self.MODEL_CONFIGS.items():
-            model_path = os.path.join(MODELS_DIR, config['filename'])
-            if not os.path.exists(model_path):
-                logger.info(f"Downloading {model_key} model...")
-                try:
-                    urllib.request.urlretrieve(config['url'], model_path)
-                    logger.info(f"Downloaded {config['filename']}")
-                except Exception as e:
-                    logger.error(f"Failed to download {model_key}: {e}")
-                    raise RuntimeError(f"Model download failed: {e}")
+    # Normalize in-place to save memory
+    input_tensor = img_arr.astype(np.float32)
+    input_tensor /= 255.0
+    input_tensor = input_tensor.transpose(2, 0, 1)[None, ...]
     
-    def _load_model_on_demand(self, model_type: str) -> RealESRGANer:
-        """Load model only when needed and cache it globally."""
-        global _current_model, _current_model_name
-        
-        if _current_model_name == model_type and _current_model is not None:
-            return _current_model
-        
-        # Clear previous model to free memory
-        if _current_model is not None:
-            del _current_model
-            _current_model = None
-            gc.collect()
-            if CUDA_AVAILABLE:
-                torch.cuda.empty_cache()
-        
-        config = self.MODEL_CONFIGS[model_type]
-        model_path = os.path.join(MODELS_DIR, config['filename'])
-        
-        logger.info(f"Loading {model_type} model...")
-        
-        # Create lightweight model
-        model = RRDBNet(
-            num_in_ch=3, 
-            num_out_ch=3, 
-            num_feat=64, 
-            num_block=config['blocks'], 
-            num_grow_ch=32, 
-            scale=config['scale']
-        )
-        
-        # Use half precision on GPU to save memory
-        use_half = CUDA_AVAILABLE
-        gpu_id = 0 if CUDA_AVAILABLE else None
-        
-        upsampler = RealESRGANer(
-            scale=config['scale'],
-            model_path=model_path,
-            dni_weight=None,
-            model=model,
-            tile=512,  # Use tiling to reduce memory usage
-            tile_pad=10,
-            pre_pad=0,
-            half=use_half,
-            gpu_id=gpu_id
-        )
-        
-        _current_model = upsampler
-        _current_model_name = model_type
-        
-        logger.info(f"Model {model_type} loaded successfully")
-        return upsampler
+    # Clear original array immediately
+    del img_arr
+    gc.collect()
     
-    def process_image(self, image_data: bytes, is_premium: bool = False) -> Tuple[bytes, Dict[str, Any]]:
-        """Process image with memory optimization."""
-        model_type = 'premium' if is_premium else 'free'
+    # Process
+    input_name = session.get_inputs()[0].name
+    output = session.run(None, {input_name: input_tensor})[0]
+    
+    # Clear input immediately
+    del input_tensor
+    gc.collect()
+    
+    # Convert back
+    output = output[0].transpose(1, 2, 0)
+    output = np.clip(output * 255.0, 0, 255).astype(np.uint8)
+    
+    return output
+
+def enhance_thumbnail(img: Image.Image) -> Image.Image:
+    """Memory-efficient thumbnail enhancement"""
+    # Apply subtle sharpening in-place
+    enhanced = img.filter(ImageFilter.UnsharpMask(radius=1, percent=110, threshold=3))
+    return enhanced
+
+def process_alpha_channel(alpha_channel, target_size):
+    """Process alpha channel separately to control memory"""
+    if alpha_channel is None:
+        return None
+    alpha_resized = alpha_channel.resize(target_size, Image.LANCZOS)
+    del alpha_channel  # Clean up original
+    gc.collect()
+    return alpha_resized
+
+async def perform_upscaling(job_id: str, image_url: str, config: dict):
+    """Ultra memory-efficient upscaling"""
+    with _jobs_lock:
+        if len(_active_jobs) >= MAX_CONCURRENT_JOBS:
+            raise ImageProcessingError("Max concurrent jobs reached")
+        if job_id in _active_jobs:
+            raise ImageProcessingError(f"Job {job_id} already active")
+        _active_jobs.add(job_id)
+
+    try:
+        # Aggressive garbage collection at start
+        gc.collect()
         
-        # Load model on demand
-        upsampler = self._load_model_on_demand(model_type)
+        # Download image with smaller buffer
+        input_bytes = CloudinaryService.download_image_from_url(image_url)
+        img = Image.open(io.BytesIO(input_bytes))
+        original_size = img.size
         
-        # Decode image efficiently - CAMBIAR ESTA LÍNEA
-        nparr = np.frombuffer(image_data, np.uint8)
-        input_image = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)  # ← CAMBIO AQUÍ
+        # Clear input bytes immediately
+        del input_bytes
+        gc.collect()
         
-        if input_image is None:
-            raise ValueError("Failed to decode input image")
-        
-        # AGREGAR ESTAS LÍNEAS AQUÍ ↓
-        has_alpha = len(input_image.shape) == 3 and input_image.shape[2] == 4
+        # Handle transparency more efficiently
+        has_alpha = img.mode in ('RGBA', 'LA', 'P')
         alpha_channel = None
         
         if has_alpha:
-            # Separar RGB y Alpha
-            alpha_channel = input_image[:, :, 3]
-            input_rgb = input_image[:, :, :3]
-            logger.info("Image has transparency - preserving alpha channel")
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            alpha_channel = img.split()[-1]
+            # Convert to RGB and clear original immediately
+            img_rgb = img.convert('RGB')
+            del img
+            img = img_rgb
         else:
-            input_rgb = input_image
-        # HASTA AQUÍ ↑
+            img = img.convert('RGB')
         
-        original_shape = input_rgb.shape[:2]  # ← CAMBIAR input_image por input_rgb
+        gc.collect()
         
-        # Resize if image is too large to prevent memory issues
-        max_dimension = 2048 if is_premium else 1024
-        h, w = original_shape
-        if max(h, w) > max_dimension:
-            scale_factor = max_dimension / max(h, w)
-            new_h, new_w = int(h * scale_factor), int(w * scale_factor)
-            input_rgb = cv2.resize(input_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
-            # También resize del alpha si existe
-            if has_alpha and alpha_channel is not None:
-                alpha_channel = cv2.resize(alpha_channel, (new_w, new_h), interpolation=cv2.INTER_AREA)
-            logger.info(f"Resized input from {w}x{h} to {new_w}x{new_h}")
+        # Resize for speed and memory (even smaller)
+        w, h = img.size
+        if max(w, h) > MAX_IMAGE_DIMENSION:
+            scale = MAX_IMAGE_DIMENSION / max(w, h)
+            new_w, new_h = int(w * scale), int(h * scale)
+            resized_img = img.resize((new_w, new_h), Image.LANCZOS)
+            del img  # Clear original immediately
+            img = resized_img
+            print(f"Resized to {new_w}x{new_h} for memory efficiency")
         
-        # Process with upsampler - CAMBIAR ESTA LÍNEA
-        try:
-            output_image, _ = upsampler.enhance(input_rgb, outscale=None)  # ← CAMBIO AQUÍ
-        except Exception as e:
-            logger.error(f"Enhancement failed: {e}")
-            raise RuntimeError(f"Upscaling failed: {e}")
+        gc.collect()
         
-        # AGREGAR DESPUÉS DEL ENHANCEMENT:
+        # Fast upscale with immediate cleanup
+        start = time.perf_counter()
+        img_arr = np.array(img)
+        del img  # Clear PIL image immediately
+        gc.collect()
+        
+        output_arr = upscale_simple(img_arr)  # img_arr is deleted inside function
+        duration = time.perf_counter() - start
+        
+        gc.collect()
+        
+        # Convert to PIL and get size
+        output_img = Image.fromarray(output_arr, 'RGB')
+        final_size = output_img.size
+        del output_arr  # Clear numpy array immediately
+        gc.collect()
+        
+        # Process alpha channel separately if needed
         if has_alpha and alpha_channel is not None:
-            # Redimensionar canal alpha al tamaño de salida
-            scale_factor = output_image.shape[0] / alpha_channel.shape[0]
-            new_alpha_size = (int(alpha_channel.shape[1] * scale_factor), 
-                            int(alpha_channel.shape[0] * scale_factor))
-            alpha_upscaled = cv2.resize(alpha_channel, new_alpha_size, interpolation=cv2.INTER_CUBIC)
-            
-            # Combinar RGB + Alpha
-            output_image = cv2.merge([output_image[:,:,0], output_image[:,:,1], 
-                                    output_image[:,:,2], alpha_upscaled])
-            logger.info("Alpha channel restored to upscaled image")
+            alpha_resized = process_alpha_channel(alpha_channel, final_size)
+            if alpha_resized:
+                output_rgba = Image.merge('RGBA', (*output_img.split(), alpha_resized))
+                del output_img, alpha_resized
+                output_img = output_rgba
+                gc.collect()
         
-        # Convert and encode efficiently
-        if output_image.dtype != np.uint8:
-            output_image = np.clip(output_image, 0, 255).astype(np.uint8)
+        # Create and save thumbnail FIRST (smaller memory footprint)
+        thumb = output_img.copy()
+        thumb.thumbnail((THUMBNAIL_DIMENSION, THUMBNAIL_DIMENSION), Image.LANCZOS)
+        thumb = enhance_thumbnail(thumb)
         
-        # CAMBIAR ESTAS LÍNEAS:
-        # Use PNG to preserve transparency
-        encode_params = [cv2.IMWRITE_PNG_COMPRESSION, 6]
-        success, buffer = cv2.imencode('.png', output_image, encode_params)
+        # Save thumbnail immediately
+        thumb_buf = io.BytesIO()
+        if thumb.mode == 'RGBA':
+            thumb.save(thumb_buf, format='PNG', optimize=True, compress_level=9)
+        else:
+            thumb.save(thumb_buf, format='JPEG', quality=90, optimize=True)
+        thumb_bytes = thumb_buf.getvalue()
+        thumb_buf.close()
+        del thumb, thumb_buf
+        gc.collect()
         
-        if not success:
-            raise RuntimeError("Failed to encode output image")
+        # Upload thumbnail and clear bytes immediately
+        thumb_url, thumb_id = CloudinaryService.upload_thumbnail(thumb_bytes, job_id)
+        del thumb_bytes
+        gc.collect()
         
-        output_bytes = buffer.tobytes()
+        # Now process full image
+        output_buf = io.BytesIO()
+        if output_img.mode == 'RGBA':
+            output_img.save(output_buf, format='PNG', optimize=True, compress_level=9)
+        else:
+            output_img.save(output_buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
+        final_bytes = output_buf.getvalue()
+        output_buf.close()
+        del output_img, output_buf
+        gc.collect()
         
-        # Calculate processing info
-        output_shape = output_image.shape[:2]
-        scale_factor = output_shape[1] / original_shape[1]
+        # Upload final image and clear bytes immediately
+        proc_url, proc_id = CloudinaryService.upload_processed_image(
+            final_bytes, job_id, 'onnx_upscaled'
+        )
+        del final_bytes
+        gc.collect()
         
-        processing_info = {
-            "model_used": f"RealESRGAN_x{self.MODEL_CONFIGS[model_type]['scale']}plus",
-            "quality_level": model_type,
+        # Results
+        scale_factor = final_size[0] / original_size[0]
+        
+        info = {
+            "model_used": "ONNX_Memory_Optimized",
+            "processing_time_s": round(duration, 2),
             "scale_factor": round(scale_factor, 2),
-            "original_size": f"{original_shape[1]}x{original_shape[0]}",
-            "output_size": f"{output_shape[1]}x{output_shape[0]}",
-            "is_premium": is_premium,
-            "memory_optimized": True
+            "original_size": f"{original_size[0]}x{original_size[1]}",
+            "output_size": f"{final_size[0]}x{final_size[1]}",
+            "thumbnail_url": thumb_url,
+            "thumbnail_size": f"{THUMBNAIL_DIMENSION}x{THUMBNAIL_DIMENSION}",
+            "full_quality_public_id": proc_id,
+            "thumbnail_public_id": thumb_id,
+            "is_premium": False,
+            "has_transparency": has_alpha,
+            "job_id": job_id,
+            "timestamp": time.time()
         }
         
-        # Clean up
-        del input_image, output_image, nparr, buffer
-        gc.collect()
-        
-        return output_bytes, processing_info
-
-
-async def perform_upscaling(
-    job_id: str,
-    image_url: str,
-    config: Dict[str, Any]
-) -> Tuple[str, Dict[str, Any]]:
-    """
-    Perform optimized image upscaling using Real-ESRGAN.
-    
-    Args:
-        job_id: Unique job identifier
-        image_url: Cloudinary URL of the original image
-        config: Processing configuration with 'quality' key
-        
-    Returns:
-        Tuple of (processed_image_url, processing_info)
-    """
-    logger.info(f"Processing upscaling job {job_id}")
-    
-    try:
-        # Get quality level
-        quality = config.get('quality', 'FREE').upper()
-        is_premium = quality == 'PREMIUM'
-        
-        # Download image efficiently
-        logger.info(f"Downloading image from Cloudinary")
-        input_image_bytes = CloudinaryService.download_image_from_url(image_url)
-        
-        # Process with optimized processor
-        processor = OptimizedUpscalingProcessor()
-        output_bytes, processing_info = processor.process_image(input_image_bytes, is_premium)
-        
-        # Create thumbnail efficiently
-        logger.info(f"Creating thumbnail for {job_id}")
-        thumbnail_bytes = LocalImageProcessor.create_thumbnail(output_bytes)
-        
-        # Optimize for upload
-        if is_premium:
-            optimized_bytes = LocalImageProcessor.optimize_premium_image(output_bytes)
-        else:
-            optimized_bytes = output_bytes
-        
-        # Upload to Cloudinary
-        logger.info(f"Uploading to Cloudinary for {job_id}")
-        processed_url, processed_public_id = CloudinaryService.upload_processed_image(
-            optimized_bytes, job_id, "upscaled"
-        )
-        
-        thumbnail_url, thumbnail_public_id = CloudinaryService.upload_thumbnail(
-            thumbnail_bytes, job_id
-        )
-        
-        # Update processing info
-        processing_info.update({
-            "full_quality_public_id": processed_public_id,
-            "thumbnail_public_id": thumbnail_public_id,
-            "thumbnail_url": thumbnail_url,
-            "local_thumbnail_generated": True,
-            "thumbnail_size_bytes": len(thumbnail_bytes),
-            "premium_size_bytes": len(optimized_bytes),
-            "mode": "memory_optimized"
-        })
-        
-        logger.info(f"✅ Successfully processed job {job_id}")
-        logger.info(f"🔗 URL: {processed_url}")
-        
-        # Final cleanup
-        del input_image_bytes, output_bytes, thumbnail_bytes, optimized_bytes
-        gc.collect()
-        if CUDA_AVAILABLE:
-            torch.cuda.empty_cache()
-        
-        return processed_url, processing_info
+        return proc_url, info
         
     except Exception as e:
-        logger.error(f"Upscaling failed for job {job_id}: {e}")
-        # Force cleanup on error
+        raise ImageProcessingError(f"Processing failed: {e}")
+    finally:
+        with _jobs_lock:
+            _active_jobs.discard(job_id)
+        # Final aggressive cleanup
         gc.collect()
-        if CUDA_AVAILABLE:
-            torch.cuda.empty_cache()
-        raise RuntimeError(f"Upscaling failed: {e}")
 
-
-def cleanup_models():
-    """Manually cleanup models to free memory."""
-    global _current_model, _current_model_name
+def force_reset_system():
+    """Reset system and clear all memory"""
+    global _active_jobs, _session
     
-    if _current_model is not None:
-        del _current_model
-        _current_model = None
-        _current_model_name = None
-        gc.collect()
-        if CUDA_AVAILABLE:
-            torch.cuda.empty_cache()
-        logger.info("Models cleaned up successfully")
-
-
-def get_memory_usage() -> Dict[str, Any]:
-    """Get current memory usage statistics."""
-    import psutil
-    import os
+    with _jobs_lock:
+        _active_jobs.clear()
     
-    process = psutil.Process(os.getpid())
-    memory_info = process.memory_info()
+    if _session:
+        del _session
+        _session = None
     
-    stats = {
-        "rss_mb": memory_info.rss / 1024 / 1024,
-        "vms_mb": memory_info.vms / 1024 / 1024,
-        "model_loaded": _current_model_name,
+    # Aggressive cleanup
+    gc.collect()
+    gc.collect()  # Double collection
+
+def get_memory_usage():
+    """Simple memory info"""
+    return {
+        "model_loaded": _session is not None,
+        "active_jobs": len(_active_jobs),
+        "max_dimension": MAX_IMAGE_DIMENSION,
+        "thumbnail_dimension": THUMBNAIL_DIMENSION
     }
-    
-    if CUDA_AVAILABLE:
-        stats["gpu_memory_mb"] = torch.cuda.memory_allocated() / 1024 / 1024
-        stats["gpu_memory_cached_mb"] = torch.cuda.memory_reserved() / 1024 / 1024
-    
-    return stats
