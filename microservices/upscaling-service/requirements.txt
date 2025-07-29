@@ -6,7 +6,7 @@ python-dotenv==1.0.0
 pydantic==2.4.2
 cloudinary==1.36.0
 requests==2.31.0
-opencv-python==4.8.1.78
+opencv-python-headless==4.9.0.80
 Pillow==10.0.1
 numpy==1.24.3
-onnxruntime>=1.16.0
+onnxruntime==1.16.3

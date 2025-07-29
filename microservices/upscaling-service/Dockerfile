@@ -6,8 +6,7 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=8002
+    HOST=0.0.0.0
 
 # Install system dependencies for image processing
 RUN apt-get update && apt-get install -y \
@@ -19,20 +18,32 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     libgcc-s1 \
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Create models directory
 RUN mkdir -p /app/models
 
+# Create non-root user for security (recommended by Render)
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
+
+# Copy requirements first for better caching
+COPY --chown=app:app requirements.txt .
+
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Add user pip packages to PATH
+ENV PATH="/home/app/.local/bin:${PATH}"
 
 # Copy application code
-COPY app/ ./app/
+COPY --chown=app:app app/ ./app/
 
-# Expose the port the app runs on
-EXPOSE ${PORT}
+# Expose port (Render uses PORT environment variable)
+EXPOSE $PORT
+
 
 # Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+# Render automatically sets the PORT environment variable
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
