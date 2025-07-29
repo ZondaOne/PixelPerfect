@@ -18,7 +18,7 @@ class ImageProcessingError(Exception):
 # Configuration\ n# URL to download ONNX model (U2-Net small) from rembg GitHub releases
 MODEL_URL = os.getenv(
     "ONNX_MODEL_URL",
-    "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
+    "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
 )
 # Local path to save the downloaded model
 MODEL_PATH = os.getenv("ONNX_MODEL_PATH", "models/u2netp.onnx")
