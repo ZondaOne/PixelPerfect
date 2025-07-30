@@ -1,0 +1,560 @@
+[33mcommit 403b2dfa9d9876e81e9902057e9259d539f8a22a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew_ui[m[33m, [m[1;31morigin/new_ui[m[33m)[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 15:18:16 2025 +0200
+
+    JWT FILTER updated for new endpoint
+
+[33mcommit cb0cd87218d48e496d3a01cdf947e650da9a9513[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 15:08:56 2025 +0200
+
+    status endpoint
+
+[33mcommit b88a5dcaf0330bfb30b23b6e3724574f51f1779b[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 02:55:16 2025 +0200
+
+    fix image upscaling v4
+
+[33mcommit 1406be01f8742601f65d9284dec0c733fcbe987f[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 02:50:59 2025 +0200
+
+    fix image upscaling v3
+
+[33mcommit 6cf08208e1680dce23776a58e1fda24229a73c09[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 02:45:37 2025 +0200
+
+    fix image upscaling v2
+
+[33mcommit 3267b187dcda0def150bab5959922243fbc6df70[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 02:25:52 2025 +0200
+
+    fix image upscaling
+
+[33mcommit edad3135f4803010cafdbb25e605877f1c83d765[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 01:29:52 2025 +0200
+
+    fix
+
+[33mcommit b26b9093fb92ee2f3724681518cb5ea91d27e90a[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 30 01:00:21 2025 +0200
+
+    upscaling service enhanced
+
+[33mcommit 1158b6e4bc264b08c3b95f24b7775b929f4a4d45[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 29 21:54:54 2025 +0200
+
+    main.py modified for rabbitmq reconnection when idle in render
+
+[33mcommit d1d4ee290e544250bef5914294ead3130133ddd7[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 29 18:32:43 2025 +0200
+
+    bg removal service v3
+
+[33mcommit d5a112d4788177abab6f611695cfe94194decc26[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 29 17:23:33 2025 +0200
+
+    bg removal service v2
+
+[33mcommit e2200c36eeedde10e07301c1ba17472452cd69ee[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 29 17:13:02 2025 +0200
+
+    bg removal service
+
+[33mcommit 3402441bcd90936cd8e88e0d2d69567c4a5c9063[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 28 21:28:33 2025 +0200
+
+    Added Async image uploading for faster processing
+
+[33mcommit f7ed6944631af7757fc8caabbda72e894fcbedf1[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 28 14:18:21 2025 +0200
+
+    HomePage DragDrop component implemented
+
+[33mcommit ad441c042f1e4ced19b8a440925584e68013406e[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 28 00:51:42 2025 +0200
+
+    Continue Processing feature Added
+
+[33mcommit f8b5e34ce3f549b9488d26e601bc7a782953bb28[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sat Jul 26 22:25:24 2025 +0200
+
+    HomePage enhancement
+
+[33mcommit eca24142498bb48ca4177ae2baed0cd4815afd8d[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sat Jul 26 22:22:58 2025 +0200
+
+    HomePage enhancement
+
+[33mcommit 3cadce9bdfaf4a4153ba280a575f9e79ea8f0176[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 18 12:58:24 2025 +0200
+
+    test bg-removal
+
+[33mcommit b21efcf1fcc555b0567122a0bea8d08c4caee5e7[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 19:53:25 2025 +0200
+
+    fix
+
+[33mcommit 430810bd16cfdfcc23a7ddf9b1b7752a36d5282f[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 19:23:46 2025 +0200
+
+    requirements fix
+
+[33mcommit 2c0de2643a50bc716c4263b0ed126e87620ba08d[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 19:09:36 2025 +0200
+
+    bg-removal enhancements
+
+[33mcommit 6ab6f39d669f542d0d828c185e3127c7ce83a2b0[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 17:44:55 2025 +0200
+
+    fix dockerFile v2
+
+[33mcommit d0694ebc93735e451906411ca0bd05fac6df81b8[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 17:39:29 2025 +0200
+
+    fix dockerFile
+
+[33mcommit ccaf977a1a367b6a8a5c317b255bb18134ef6375[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 17:24:59 2025 +0200
+
+    fix requirements.txt
+
+[33mcommit eb257b15fc5142e72e485e0c8a8867e055099f1d[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 16:57:48 2025 +0200
+
+    Add Render config for bg-removal and upscaling services
+
+[33mcommit 0c86023f08519a3e8b74051738fdb03424e3eaf1[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 16:20:27 2025 +0200
+
+    fetch to backend
+
+[33mcommit 3e637f5e7bb15d450989f7e2edec5ebe5aea7d2d[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 13:45:15 2025 +0200
+
+    redirects v2
+
+[33mcommit 7c0f0865eae6f340f16d33015a2133254c46c762[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 13:19:03 2025 +0200
+
+    redirects
+
+[33mcommit 2c7be443d1de845617cb89141e836d8830a90dc2[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 17 13:10:06 2025 +0200
+
+    test commit
+
+[33mcommit 933c4e9d99a652b1c0e7a732d2aea4d11cdb20c6[m
+Author: Lautaro Cavichia <112610161+LautaroCavichia@users.noreply.github.com>
+Date:   Thu Jul 17 10:31:19 2025 +0200
+
+    Update SecurityConfig.java
+
+[33mcommit c3218bd9a7b215a2aa89e9d8c54ebc8699317d74[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 16 16:58:14 2025 +0200
+
+    added google log in
+
+[33mcommit b8a5114737a68dac31ccb41dd48a0b382308a317[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 16 00:13:23 2025 +0200
+
+    fix premium download
+
+[33mcommit 588a22387b0fc8b0e7dafe7afa3a4be2264d60f2[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 15 22:18:11 2025 +0200
+
+    ux-ui improvements WARNING
+
+[33mcommit 368f7d90d24d15119b2f6b8a5bf529225d05465c[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 15 20:26:29 2025 +0200
+
+    ux-ui improvements
+
+[33mcommit 8ea4806f315f40d4350d992fac24e40b0771d2ba[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 15 00:07:10 2025 +0200
+
+    homepage enhancement
+
+[33mcommit d44975bcb884db641aa74cf2a52cb7f71e96146b[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 14 22:30:03 2025 +0200
+
+    homepage enhancement
+
+[33mcommit 12472e96d62b0bd1c9f9c7260003be52d661253c[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 14 20:51:15 2025 +0200
+
+    homepage layout
+
+[33mcommit 3528bba1cf731896c9db4175cd01e78b97845948[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jul 14 16:32:46 2025 +0200
+
+    visual enhancements, enhanced bypass security
+
+[33mcommit 52d6577a8eceaf83607333c86568644260297cac[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sun Jul 13 12:34:36 2025 +0200
+
+    homepage enhancement
+
+[33mcommit 528a8a091278b12f23b9a8b43e255eb227d3e98b[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sat Jul 12 15:48:56 2025 +0200
+
+    Visual enhancement
+
+[33mcommit 1af5901a3243e895dcdf30355a88a01852d2c212[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sat Jul 12 14:05:06 2025 +0200
+
+    added homepage section
+
+[33mcommit 7338943f8ce515b97e123f6755c4c72cc1854bcf[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 11 19:25:07 2025 +0200
+
+    visual enhancements v2
+
+[33mcommit 206791351d70c5f6da90ab2f347d1db9fdddde74[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 11 02:09:12 2025 +0200
+
+    visual enhancements
+
+[33mcommit 9940f0b727e53a479cc2c67a5a9e4ff8e8417763[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 10 20:13:21 2025 +0200
+
+    visual enhancements
+
+[33mcommit a34df46206c7cd87bab5ec47d97482a87fb829cc[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Thu Jul 10 11:19:57 2025 +0200
+
+    add beta signup page and route
+
+[33mcommit 8b3e706e265496d558123a5c3e1b7f5a4d62d604[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Wed Jul 9 17:01:10 2025 +0200
+
+    memory debugging
+
+[33mcommit 02811deaf22088bccfdbf3517688d5ef0c3b6e15[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 9 01:38:22 2025 +0200
+
+    fix img generation
+
+[33mcommit 2a7e5153c21dfb61681f4a4c34c98977c440c9ea[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 8 16:15:31 2025 +0200
+
+    enhanced img slider before/after
+
+[33mcommit cec2550ce0e22515fe400e993c0bb9d93ce3e898[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 8 13:55:40 2025 +0200
+
+    fix img enlargement, fix img slider performance
+
+[33mcommit cb0391ed42b3aedfa6deb7e8ab40a0e33514cdb4[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 8 12:47:49 2025 +0200
+
+    partial fix 2 img-uploader mobile
+
+[33mcommit fda41ea17f8fb6dc619c7c70a61290fbe596451c[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 8 12:39:31 2025 +0200
+
+    enhance generation service, partial fix img-upload mobile
+
+[33mcommit 654f03e8f73b089a866989027268f109331d80b5[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 4 17:58:44 2025 +0200
+
+    bg-removal optimized memory usage
+
+[33mcommit 2742b557d4ce0df346c76332c1edd01262e6de11[m
+Merge: 141efbe 40430eb
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 4 17:34:37 2025 +0200
+
+    Merge branch 'new_ui' of https://github.com/LautaroCavichia/ai-image-toolkit into new_ui
+    
+    enhanced bg-removal & upscaling services
+
+[33mcommit 141efbedafed4562a65f8296fbf99336cbe0e5a7[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jul 4 17:34:03 2025 +0200
+
+    optimized bg-removal & upscaling services
+
+[33mcommit 40430ebac099ce224dd95123271f078c53862916[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Fri Jul 4 10:46:38 2025 +0200
+
+    port fix
+
+[33mcommit e30bb6be22b93c8ee76754860637967de5d69a75[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Fri Jul 4 10:13:31 2025 +0200
+
+    ssl rabbit fix
+
+[33mcommit 22e5d0281a1b1d09a2102ab8db0901c541e621e3[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Fri Jul 4 09:39:48 2025 +0200
+
+    path fix
+
+[33mcommit 32a8a9ecce17d6de61840675cd065f389509cef8[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Fri Jul 4 09:29:50 2025 +0200
+
+    added cloudamqp support for rabbit queue
+
+[33mcommit 205e50845305297132b660d6eb7e58babb1c2a1d[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Fri Jul 4 09:25:06 2025 +0200
+
+    files and deps for ms deploy
+
+[33mcommit 56c1ae9dbdff7bda5c75a59e51dce61b1209719b[m
+Merge: dba2a52 32bbaa1
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 23:49:44 2025 +0200
+
+    Merge branch 'new_ui' of https://github.com/LautaroCavichia/ai-image-toolkit into new_ui
+    
+    removed loading
+
+[33mcommit dba2a5230f5adad5f246af3d88be2c3ebb1e22c1[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 23:49:01 2025 +0200
+
+    removed loading screen
+
+[33mcommit 32bbaa147639a5f4b7fe44396ce5090dce3dcb05[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Thu Jul 3 23:21:29 2025 +0200
+
+    enhance CORS configuration to support origin patterns and expose Authorization header
+
+[33mcommit bfff330f30b5d99d8b6e65612f41dad68cde1720[m
+Merge: 8bd8a1c 7d7b42b
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 23:15:08 2025 +0200
+
+    Merge branch 'new_ui' of https://github.com/LautaroCavichia/ai-image-toolkit into new_ui
+    
+    test
+
+[33mcommit 8bd8a1c9b06e79cbbcb25702d76e4c80dd6fb135[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 23:10:17 2025 +0200
+
+    logging fix
+
+[33mcommit 7d7b42b2d48608b2efb6a9b2680be8147285efb6[m
+Author: LautaroCavichia <lautarocavichia@gmail.com>
+Date:   Thu Jul 3 23:08:02 2025 +0200
+
+    added CORS compatability in backend
+
+[33mcommit 802921b7b4264a396cd8314fd20fd39006435898[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 22:28:45 2025 +0200
+
+    partial fix login
+
+[33mcommit f2396020e05f89ee050f488cf87436323d51229f[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jul 3 21:38:55 2025 +0200
+
+    new model for text-to-image
+
+[33mcommit cce2a47094522b26155707a79d8650c4803d97a8[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Wed Jul 2 18:04:03 2025 +0200
+
+    new model for img generation service
+
+[33mcommit 48fcab6c817147efe46cd795ad274aaabff963dc[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 1 23:08:37 2025 +0200
+
+    text-to-image implemented
+
+[33mcommit a18b7582ba049a7192bf19480f1d7ff23c4fa5a2[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 1 19:57:15 2025 +0200
+
+    partial v2 fix image generation
+
+[33mcommit 42a8d24f019222f205444c5b99df71d9fd8a291f[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Tue Jul 1 19:24:51 2025 +0200
+
+    partial fix img generation
+
+[33mcommit 659db57e698849ce43622e6b461859b384700765[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Tue Jul 1 18:22:33 2025 +0200
+
+    image generation endpoint and DTO fix
+
+[33mcommit 57a47e0f53eadee075ce291a65bd3deb14be5e0f[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Tue Jul 1 12:02:04 2025 +0200
+
+    added new image generation service
+
+[33mcommit 29b6223c8ed2a47bfc918538066cd727963855e9[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jun 30 23:38:24 2025 +0200
+
+    fix email validation, added imagePreview ObjectRemoval
+
+[33mcommit 0900bcc192920024de58525799b33c44f110fa1b[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jun 30 17:15:41 2025 +0200
+
+    verification fixed
+
+[33mcommit 5e09fb75e2c374374d395c857b4c3144763482f3[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Mon Jun 30 00:06:56 2025 +0200
+
+    partial fix verifation mail
+
+[33mcommit 5c4360312ad29cedd20448d4c20c7a956d3d6e3d[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Sun Jun 29 21:50:33 2025 +0200
+
+    token fix
+
+[33mcommit 11bd2a946dbcbf75d97031e0ffd786e37b314dba[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Sun Jun 29 19:09:44 2025 +0200
+
+    Implement local image processing for thumbnails and premium image optimization across multiple services
+
+[33mcommit 08f88d956bab69578ae6753a2f744cb1df85b56e[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Sun Jun 29 18:23:35 2025 +0200
+
+    Critical Vulnerabilities Fixed
+
+[33mcommit abd88df1ba736f02c76f8b7a10525c75d65edf2a[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Sun Jun 29 11:02:47 2025 +0200
+
+    added two-factor email signup control
+
+[33mcommit 0f7c70a0299021b0064c377d39562a2b45dcbce3[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Sat Jun 28 00:47:35 2025 +0200
+
+    Password reset implemented, addes username display in register form
+
+[33mcommit d9dcbb7be906ee2680214cda249a202ad6f4e4a0[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jun 27 17:51:04 2025 +0200
+
+    added HomePage sections
+
+[33mcommit 6db9f5f07d413d5838d36859e22a1b564ed5a864[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 12:03:30 2025 +0200
+
+    backend deploy fix
+
+[33mcommit 7d86fafc279f8d2bdf7caf9f1a8b149c27509095[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 11:57:17 2025 +0200
+
+    healt actuator for railway
+
+[33mcommit cfdff0e7991b0157e82997c6ec4cfbf41fd0fcdb[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 11:41:49 2025 +0200
+
+    backend deploy config
+
+[33mcommit 525fda6a3a18e35b31c3b4e38c3ecdb1503aabcc[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 11:36:35 2025 +0200
+
+    animation fix
+
+[33mcommit 6f58be3c049e269473c07878f20cf5f4d54c04ea[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 11:21:09 2025 +0200
+
+    feat: Enhance login, object removal, and upscale pages with GSAP animations and service preloader
+
+[33mcommit af46f755c374e2eb42245ad8790ebf4b2bbe689b[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Fri Jun 27 10:32:55 2025 +0200
+
+    feat: add Footer component with company info, services, and links
+
+[33mcommit f05cfa144436b4c590b51e0902fb02158e83ec15[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Fri Jun 27 00:39:20 2025 +0200
+
+    landing updated
+
+[33mcommit 93c373fbe569c30d8c5069728a2df116604935cc[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jun 26 18:46:26 2025 +0200
+
+    grid mesh background optimized
+
+[33mcommit 87e5e629cfe05caffaec890fa78e754297cb1ef1[m
+Author: Lautaro Cavichia <lautarocavichia@gmail.com>
+Date:   Thu Jun 26 16:57:02 2025 +0200
+
+    Enhance performance and user experience across multiple components
+
+[33mcommit 48bcf5a66682084bf409f37935c496320f7dd45b[m
+Author: Bruno <cavichiabruno@gmail.com>
+Date:   Thu Jun 26 00:00:10 2025 +0200
+
+    userProfile implemented
