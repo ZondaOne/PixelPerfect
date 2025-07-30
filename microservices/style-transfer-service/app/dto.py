@@ -12,7 +12,6 @@ class JobType(str, Enum):
     BG_REMOVAL = "BG_REMOVAL"
     UPSCALE = "UPSCALE"
     ENLARGE = "ENLARGE"
-    STYLE_TRANSFER = "STYLE_TRANSFER"
 
 class JobStatus(str, Enum):
     """Status values for job processing."""

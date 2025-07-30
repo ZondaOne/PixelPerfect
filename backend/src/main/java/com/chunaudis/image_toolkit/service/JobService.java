@@ -328,4 +328,8 @@ public class JobService {
         String[] parts = url.split("/");
         return parts[parts.length - 1];
     }
+
+public Optional<Job> findById(UUID jobId) {
+    return jobRepository.findById(jobId);
+}    
 }

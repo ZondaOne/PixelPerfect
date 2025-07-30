@@ -64,10 +64,9 @@ public class ImageService {
     }
 
     /**
-     * LIGHTNING-FAST upload processing - ZERO blocking operations in main thread
+     * LIGHTNING-FAST upload processing - Fixed transaction handling
      * Returns in < 50ms guaranteed
      */
-    @Transactional
     public Job processUploadedImage(MultipartFile file, ImageUploadRequestDTO requestDTO,
             Map<String, Object> jobConfig) {
         
@@ -75,62 +74,23 @@ public class ImageService {
         log.info("🚀 LIGHTNING upload process started for file: {}", file.getOriginalFilename());
         
         try {
-            // STEP 1: Enhanced validation with corruption check
-            long validationStart = System.nanoTime();
-            validateFileWithEnhancedChecks(file);
-            log.debug("⚡ Validation: {}ms", (System.nanoTime() - validationStart) / 1_000_000);
+            // Copy file data immediately (before any transactions)
+            byte[] fileData;
+            String originalFilename = file.getOriginalFilename();
+            String contentType = file.getContentType();
             
-            // STEP 2: User lookup with timeout protection
-            long userStart = System.nanoTime();
-            UUID userId = UUID.fromString(requestDTO.getUserId());
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
-            log.debug("⚡ User lookup: {}ms", (System.nanoTime() - userStart) / 1_000_000);
-            
-            // STEP 3: Create minimal image entity
-            long entityStart = System.nanoTime();
-            Image image = createMinimalImageEntity(file, user);
-            Image savedImage = imageRepository.save(image);
-            log.debug("⚡ Entity creation: {}ms", (System.nanoTime() - entityStart) / 1_000_000);
-            
-            // STEP 4: Create job instantly
-            long jobStart = System.nanoTime();
-            Job job = jobService.createJob(savedImage, requestDTO.getJobType(), jobConfig, userId);
-            Job savedJob = jobService.saveJob(job);
-            log.debug("⚡ Job creation: {}ms", (System.nanoTime() - jobStart) / 1_000_000);
-            
-            // STEP 5: Copy file data before async processing (MultipartFile is not thread-safe!)
             try {
-                byte[] fileData = file.getBytes();
-                String originalFilename = file.getOriginalFilename();
-                String contentType = file.getContentType();
-                
-                // Fire-and-forget async processing with copied data
-                CompletableFuture.runAsync(() -> processUploadAsyncWithRetry(
-                        fileData, originalFilename, contentType, savedImage, savedJob, jobConfig))
-                        .exceptionally(throwable -> {
-                            log.error("❌ Async upload failed for image {}: {}", 
-                                savedImage.getImageId(), throwable.getMessage(), throwable);
-                            
-                            // Update job status with detailed error
-                            try {
-                                String errorMessage = throwable.getCause() != null ? 
-                                    throwable.getCause().getMessage() : throwable.getMessage();
-                                jobService.updateJobStatus(savedJob.getJobId(), JobStatusEnum.FAILED, 
-                                    "Upload failed: " + errorMessage);
-                            } catch (Exception e) {
-                                log.error("Failed to update job status after upload failure", e);
-                            }
-                            
-                            return null;
-                        });
-                        
+                fileData = file.getBytes();
             } catch (IOException e) {
-                log.error("❌ Failed to copy file data for async processing: {}", e.getMessage());
-                jobService.updateJobStatus(savedJob.getJobId(), JobStatusEnum.FAILED, 
-                    "Failed to prepare file for upload: " + e.getMessage());
+                log.error("❌ Failed to copy file data: {}", e.getMessage());
                 throw new RuntimeException("Failed to prepare file for upload", e);
             }
+            
+            // Create job in transaction
+            Job savedJob = createJobInTransaction(file, requestDTO, jobConfig, fileData.length);
+            
+            // Start async processing AFTER transaction commits
+            startAsyncProcessing(fileData, originalFilename, contentType, savedJob, jobConfig);
             
             long totalTime = (System.nanoTime() - startTime) / 1_000_000;
             log.info("🏆 LIGHTNING response ready in {}ms - upload happening in background", totalTime);
@@ -146,6 +106,90 @@ public class ImageService {
                 file.getOriginalFilename(), e.getMessage(), e);
             throw e;
         }
+    }
+
+    /**
+     * Create job and image in a single transaction
+     */
+    @Transactional
+    public Job createJobInTransaction(MultipartFile file, ImageUploadRequestDTO requestDTO, 
+                                    Map<String, Object> jobConfig, int fileDataSize) {
+        
+        long startTime = System.nanoTime();
+        
+        // STEP 1: Enhanced validation
+        long validationStart = System.nanoTime();
+        validateFileWithEnhancedChecks(file);
+        log.debug("⚡ Validation: {}ms", (System.nanoTime() - validationStart) / 1_000_000);
+        
+        // STEP 2: User lookup
+        long userStart = System.nanoTime();
+        UUID userId = UUID.fromString(requestDTO.getUserId());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+        log.debug("⚡ User lookup: {}ms", (System.nanoTime() - userStart) / 1_000_000);
+        
+        // STEP 3: Create minimal image entity
+        long entityStart = System.nanoTime();
+        Image image = createMinimalImageEntity(file, user);
+        Image savedImage = imageRepository.save(image);
+        log.debug("⚡ Entity creation: {}ms", (System.nanoTime() - entityStart) / 1_000_000);
+        
+        // STEP 4: Create job
+        long jobStart = System.nanoTime();
+        Job job = jobService.createJob(savedImage, requestDTO.getJobType(), jobConfig, userId);
+        Job savedJob = jobService.saveJob(job);
+        log.debug("⚡ Job creation: {}ms", (System.nanoTime() - jobStart) / 1_000_000);
+        
+        long totalTransactionTime = (System.nanoTime() - startTime) / 1_000_000;
+        log.info("✅ Job {} created for image {} in transaction ({}ms)", 
+            savedJob.getJobId(), savedImage.getImageId(), totalTransactionTime);
+        
+        return savedJob;
+        // Transaction commits here, making job visible to other threads
+    }
+
+    /**
+     * Start async processing after transaction commits
+     */
+    private void startAsyncProcessing(byte[] fileData, String originalFilename, String contentType, 
+                                    Job savedJob, Map<String, Object> jobConfig) {
+        
+        // Store the IDs we need for async processing
+        UUID jobId = savedJob.getJobId();
+        UUID imageId = savedJob.getOriginalImage().getImageId();
+        
+        // Small delay to ensure transaction is fully committed
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Brief delay to ensure transaction propagation
+                Thread.sleep(100);
+                
+                // Load fresh entities in the async context
+                Image image = imageRepository.findById(imageId)
+                        .orElseThrow(() -> new EntityNotFoundException("Image not found: " + imageId));
+                Job job = jobService.findById(jobId)
+                        .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
+                
+                processUploadAsyncWithRetry(fileData, originalFilename, contentType, image, job, jobConfig);
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("❌ Async processing interrupted for job {}", jobId);
+            } catch (Exception e) {
+                log.error("❌ Async upload failed for job {}: {}", 
+                    jobId, e.getMessage(), e);
+                
+                // Update job status with error
+                try {
+                    String errorMessage = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                    jobService.updateJobStatus(jobId, JobStatusEnum.FAILED, 
+                        "Upload failed: " + errorMessage);
+                } catch (Exception updateError) {
+                    log.error("Failed to update job status after upload failure", updateError);
+                }
+            }
+        });
     }
 
     /**
