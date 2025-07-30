@@ -5,6 +5,8 @@ import gc
 import io
 import requests
 import numpy as np
+import asyncio
+import concurrent.futures
 from PIL import Image, ImageFilter
 import onnxruntime as ort
 
@@ -21,15 +23,21 @@ FREE_MODEL_URL = os.getenv(
 
 FREE_MODEL_PATH = os.getenv("FREE_UPSCALE_MODEL_PATH", "models/realesrgan_free.onnx")
 
-# ULTRA conservative settings for memory
-MAX_IMAGE_DIMENSION = 200  # Reducido aún más
-THUMBNAIL_DIMENSION = 300  # Reducido para menos memoria
-JPEG_QUALITY = 85  # Slightly lower for smaller files
+# ULTRA conservative settings optimized for 1 CPU + 512MB RAM
+MAX_IMAGE_DIMENSION = 150  # Más pequeño para velocidad
+THUMBNAIL_DIMENSION = 200  # Reducido para menos memoria
+JPEG_QUALITY = 75  # Menos calidad = más velocidad
 MAX_CONCURRENT_JOBS = 1
 
 _active_jobs = set()
 _jobs_lock = threading.Lock()
 _session = None
+
+async def run_sync_in_thread(func, *args, **kwargs):
+    """Ejecutar función síncrona en thread separado para no bloquear"""
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        return await loop.run_in_executor(executor, func, *args, **kwargs)
 
 def download_model(url: str, path: str):
     """Download ONNX model if not exists"""
@@ -119,8 +127,25 @@ def process_alpha_channel(alpha_channel, target_size):
     gc.collect()
     return alpha_resized
 
+def save_image_fast(img, is_thumbnail=False):
+    """Guardar imagen priorizando velocidad sobre calidad"""
+    buf = io.BytesIO()
+    
+    if img.mode == 'RGBA':
+        # PNG más rápido con menos compresión
+        compress_level = 1 if is_thumbnail else 3  # Mínima compresión
+        img.save(buf, format='PNG', optimize=False, compress_level=compress_level)
+    else:
+        # JPEG más rápido
+        quality = 90 if is_thumbnail else JPEG_QUALITY
+        img.save(buf, format='JPEG', quality=quality, optimize=False)
+    
+    result = buf.getvalue()
+    buf.close()
+    return result
+
 async def perform_upscaling(job_id: str, image_url: str, config: dict):
-    """Ultra memory-efficient upscaling"""
+    """Ultra memory-efficient upscaling optimized for 1 CPU"""
     with _jobs_lock:
         if len(_active_jobs) >= MAX_CONCURRENT_JOBS:
             raise ImageProcessingError("Max concurrent jobs reached")
@@ -129,6 +154,8 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         _active_jobs.add(job_id)
 
     try:
+        print(f"Starting job {job_id} - downloading image...")
+        
         # Aggressive garbage collection at start
         gc.collect()
         
@@ -136,6 +163,7 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         input_bytes = CloudinaryService.download_image_from_url(image_url)
         img = Image.open(io.BytesIO(input_bytes))
         original_size = img.size
+        print(f"Original image size: {original_size}")
         
         # Clear input bytes immediately
         del input_bytes
@@ -171,6 +199,7 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         gc.collect()
         
         # Fast upscale with immediate cleanup
+        print("Starting upscale process...")
         start = time.perf_counter()
         img_arr = np.array(img)
         del img  # Clear PIL image immediately
@@ -178,6 +207,7 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         
         output_arr = upscale_simple(img_arr)  # img_arr is deleted inside function
         duration = time.perf_counter() - start
+        print(f"Upscale completed in {duration:.2f}s")
         
         gc.collect()
         
@@ -197,49 +227,53 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
                 gc.collect()
         
         # Create and save thumbnail FIRST (smaller memory footprint)
+        print("Creating thumbnail...")
         thumb = output_img.copy()
         thumb.thumbnail((THUMBNAIL_DIMENSION, THUMBNAIL_DIMENSION), Image.LANCZOS)
         thumb = enhance_thumbnail(thumb)
         
-        # Save thumbnail immediately
-        thumb_buf = io.BytesIO()
-        if thumb.mode == 'RGBA':
-            thumb.save(thumb_buf, format='PNG', optimize=True, compress_level=9)
-        else:
-            thumb.save(thumb_buf, format='JPEG', quality=90, optimize=True)
-        thumb_bytes = thumb_buf.getvalue()
-        thumb_buf.close()
-        del thumb, thumb_buf
+        # Save thumbnail with fast settings
+        thumb_bytes = save_image_fast(thumb, is_thumbnail=True)
+        del thumb
         gc.collect()
         
-        # Upload thumbnail and clear bytes immediately
-        thumb_url, thumb_id = CloudinaryService.upload_thumbnail(thumb_bytes, job_id)
+        # Start thumbnail upload asynchronously
+        print("Starting thumbnail upload...")
+        thumb_upload_task = run_sync_in_thread(CloudinaryService.upload_thumbnail, thumb_bytes, job_id)
+        
+        # Clear thumbnail bytes and prepare main image while upload happens
         del thumb_bytes
         gc.collect()
         
-        # Now process full image
-        output_buf = io.BytesIO()
-        if output_img.mode == 'RGBA':
-            output_img.save(output_buf, format='PNG', optimize=True, compress_level=9)
-        else:
-            output_img.save(output_buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
-        final_bytes = output_buf.getvalue()
-        output_buf.close()
-        del output_img, output_buf
+        # Prepare main image
+        print("Preparing main image...")
+        final_bytes = save_image_fast(output_img, is_thumbnail=False)
+        del output_img
         gc.collect()
         
-        # Upload final image and clear bytes immediately
-        proc_url, proc_id = CloudinaryService.upload_processed_image(
-            final_bytes, job_id, 'onnx_upscaled'
+        # Wait for thumbnail upload to complete
+        print("Waiting for thumbnail upload...")
+        thumb_url, thumb_id = await thumb_upload_task
+        print("Thumbnail uploaded successfully!")
+        
+        # Start main image upload
+        print("Starting main image upload...")
+        proc_url, proc_id = await run_sync_in_thread(
+            CloudinaryService.upload_processed_image,
+            final_bytes, 
+            job_id, 
+            'onnx_upscaled'
         )
         del final_bytes
         gc.collect()
+        
+        print("All uploads completed successfully!")
         
         # Results
         scale_factor = final_size[0] / original_size[0]
         
         info = {
-            "model_used": "ONNX_Memory_Optimized",
+            "model_used": "ONNX_Memory_Optimized_1CPU",
             "processing_time_s": round(duration, 2),
             "scale_factor": round(scale_factor, 2),
             "original_size": f"{original_size[0]}x{original_size[1]}",
@@ -251,12 +285,15 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
             "is_premium": False,
             "has_transparency": has_alpha,
             "job_id": job_id,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "max_dimension_used": MAX_IMAGE_DIMENSION
         }
         
+        print(f"Job {job_id} completed successfully!")
         return proc_url, info
         
     except Exception as e:
+        print(f"Error in job {job_id}: {str(e)}")
         raise ImageProcessingError(f"Processing failed: {e}")
     finally:
         with _jobs_lock:
@@ -278,6 +315,7 @@ def force_reset_system():
     # Aggressive cleanup
     gc.collect()
     gc.collect()  # Double collection
+    print("System reset completed")
 
 def get_memory_usage():
     """Simple memory info"""
@@ -285,5 +323,6 @@ def get_memory_usage():
         "model_loaded": _session is not None,
         "active_jobs": len(_active_jobs),
         "max_dimension": MAX_IMAGE_DIMENSION,
-        "thumbnail_dimension": THUMBNAIL_DIMENSION
+        "thumbnail_dimension": THUMBNAIL_DIMENSION,
+        "jpeg_quality": JPEG_QUALITY
     }
