@@ -23,10 +23,11 @@ FREE_MODEL_URL = os.getenv(
 
 FREE_MODEL_PATH = os.getenv("FREE_UPSCALE_MODEL_PATH", "models/realesrgan_free.onnx")
 
-# Balanced optimization for Render free tier - quality vs speed
-MAX_IMAGE_DIMENSION = 200   # Better quality, still manageable
-THUMBNAIL_DIMENSION = 180   # Better thumbnails
-JPEG_QUALITY = 80          # Better quality output
+# Smart optimization for Render free tier - MINIMUM input size for quality
+MIN_PROCESSING_DIMENSION = 150   # No reducir por debajo de esto
+MAX_PROCESSING_DIMENSION = 300   # Solo reducir si es MUY grande para memoria
+THUMBNAIL_DIMENSION = 180
+JPEG_QUALITY = 80
 MAX_CONCURRENT_JOBS = 1    # Only one job at a time
 CHUNK_SIZE = 2048          # Smaller download chunks
 TIMEOUT = 15               # Shorter timeouts
@@ -108,16 +109,21 @@ def upscale_adaptive_chunks(img_arr: np.ndarray) -> np.ndarray:
     h, w, c = img_arr.shape
     total_pixels = h * w
     
-    # Small images: process directly (up to 100x100)
-    if total_pixels <= 10000:
+    print(f"Processing array: {h}x{w} ({total_pixels:,} pixels)")
+    
+    # Small images: process directly (up to 200x200 = 40k pixels)
+    if total_pixels <= 40000:
+        print("Small image - processing directly")
         return upscale_direct(img_arr, session)
     
-    # Medium images: split in 2x2 (100x100 to 200x200)
-    elif total_pixels <= 40000:
+    # Medium images: split in 2x2 (40k to 90k pixels)
+    elif total_pixels <= 90000:
+        print("Medium image - using 2x2 chunks")
         return upscale_in_chunks(img_arr, session, 2, 2)
     
-    # Large images: split in 3x3 (200x200+)
+    # Large images: split in 3x3 (90k+ pixels) 
     else:
+        print("Large image - using 3x3 chunks")
         return upscale_in_chunks(img_arr, session, 3, 3)
 
 def upscale_in_chunks(img_arr: np.ndarray, session, rows: int, cols: int) -> np.ndarray:
@@ -196,26 +202,33 @@ def upscale_direct(img_arr: np.ndarray, session) -> np.ndarray:
     return output
 
 def smart_resize_for_quality(img: Image.Image) -> Image.Image:
-    """Smart resize balancing quality and performance"""
+    """Smart resize - NEVER make image smaller unless too big for memory"""
     w, h = img.size
+    max_dimension = max(w, h)
     pixels = w * h
     
-    # Don't resize small images - keep original quality
-    if pixels <= 10000:  # 100x100
-        print(f"Small image ({w}x{h}) - keeping original size")
-        return img
+    print(f"Original image: {w}x{h} ({pixels:,} pixels)")
     
-    # Only resize if necessary for memory management
-    if max(w, h) > MAX_IMAGE_DIMENSION:
-        scale = MAX_IMAGE_DIMENSION / max(w, h)
-        new_w = max(32, int(w * scale))  # Minimum 32px for decent quality
-        new_h = max(32, int(h * scale))
-        
-        # Use high-quality LANCZOS for better results
+    # Small images: upscale to minimum size for better AI processing
+    if max_dimension < MIN_PROCESSING_DIMENSION:
+        scale = MIN_PROCESSING_DIMENSION / max_dimension
+        new_w = int(w * scale)
+        new_h = int(h * scale)
         resized = img.resize((new_w, new_h), Image.LANCZOS)
-        print(f"Quality-balanced resize: {w}x{h} -> {new_w}x{new_h}")
+        print(f"Upscaled small image: {w}x{h} -> {new_w}x{new_h} (scale: {scale:.2f})")
         return resized
     
+    # Huge images: only reduce if absolutely necessary for memory
+    elif max_dimension > MAX_PROCESSING_DIMENSION:
+        scale = MAX_PROCESSING_DIMENSION / max_dimension
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        resized = img.resize((new_w, new_h), Image.LANCZOS)
+        print(f"Reduced huge image: {w}x{h} -> {new_w}x{new_h} (scale: {scale:.2f})")
+        return resized
+    
+    # Perfect size range: keep as-is
+    print(f"Perfect size - keeping original: {w}x{h}")
     return img
 
 def enhance_thumbnail_quality(img: Image.Image) -> Image.Image:
@@ -393,8 +406,9 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
             "has_transparency": has_alpha,
             "job_id": job_id,
             "timestamp": time.time(),
-            "max_dimension_used": MAX_IMAGE_DIMENSION,
-            "optimization_level": "quality_balanced"
+            "min_processing_dimension": MIN_PROCESSING_DIMENSION,
+            "max_processing_dimension": MAX_PROCESSING_DIMENSION,
+            "optimization_level": "smart_quality_preserving"
         }
         
         print(f"Job {job_id} completed successfully in {total_time:.1f}s!")
@@ -433,7 +447,8 @@ def get_memory_usage():
     return {
         "model_loaded": _session is not None,
         "active_jobs": len(_active_jobs),
-        "max_dimension": MAX_IMAGE_DIMENSION,
+        "min_processing_dimension": MIN_PROCESSING_DIMENSION,
+        "max_processing_dimension": MAX_PROCESSING_DIMENSION,
         "thumbnail_dimension": THUMBNAIL_DIMENSION,
         "jpeg_quality": JPEG_QUALITY,
         "optimization_target": "render_free_tier_512mb",
