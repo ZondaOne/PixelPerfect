@@ -23,10 +23,10 @@ FREE_MODEL_URL = os.getenv(
 
 FREE_MODEL_PATH = os.getenv("FREE_UPSCALE_MODEL_PATH", "models/realesrgan_free.onnx")
 
-# EXTREME optimization for Render free tier - prioritize speed over quality
-MAX_IMAGE_DIMENSION = 80    # Drastically reduced - main bottleneck
-THUMBNAIL_DIMENSION = 150   # Smaller thumbnails
-JPEG_QUALITY = 65          # Lower quality for speed
+# Balanced optimization for Render free tier - quality vs speed
+MAX_IMAGE_DIMENSION = 200   # Better quality, still manageable
+THUMBNAIL_DIMENSION = 180   # Better thumbnails
+JPEG_QUALITY = 80          # Better quality output
 MAX_CONCURRENT_JOBS = 1    # Only one job at a time
 CHUNK_SIZE = 2048          # Smaller download chunks
 TIMEOUT = 15               # Shorter timeouts
@@ -102,40 +102,75 @@ def get_session_optimized() -> ort.InferenceSession:
     
     return _session
 
-def upscale_micro_chunks(img_arr: np.ndarray) -> np.ndarray:
-    """Process image in micro chunks to avoid OOM on 512MB RAM"""
+def upscale_adaptive_chunks(img_arr: np.ndarray) -> np.ndarray:
+    """Adaptive chunking based on image size and available memory"""
     session = get_session_optimized()
     h, w, c = img_arr.shape
+    total_pixels = h * w
     
-    # For very small images, process directly
-    if h <= 40 and w <= 40:
+    # Small images: process directly (up to 100x100)
+    if total_pixels <= 10000:
         return upscale_direct(img_arr, session)
     
-    # Split into 4 micro chunks for larger images
-    chunk_h, chunk_w = h // 2, w // 2
+    # Medium images: split in 2x2 (100x100 to 200x200)
+    elif total_pixels <= 40000:
+        return upscale_in_chunks(img_arr, session, 2, 2)
+    
+    # Large images: split in 3x3 (200x200+)
+    else:
+        return upscale_in_chunks(img_arr, session, 3, 3)
+
+def upscale_in_chunks(img_arr: np.ndarray, session, rows: int, cols: int) -> np.ndarray:
+    """Process image in NxM chunks with proper edge handling"""
+    h, w, c = img_arr.shape
+    
+    # Calculate chunk sizes with overlap to avoid seams
+    chunk_h = h // rows
+    chunk_w = w // cols
+    overlap = 4  # Small overlap to blend edges
     
     # Pre-allocate output
     output = np.zeros((h * 4, w * 4, c), dtype=np.uint8)
     
-    chunks = [
-        (img_arr[:chunk_h, :chunk_w], 0, 0),
-        (img_arr[:chunk_h, chunk_w:], 0, chunk_w * 4),
-        (img_arr[chunk_h:, :chunk_w], chunk_h * 4, 0),
-        (img_arr[chunk_h:, chunk_w:], chunk_h * 4, chunk_w * 4)
-    ]
+    print(f"Processing in {rows}x{cols} chunks ({chunk_h}x{chunk_w} each)...")
     
-    for i, (chunk, y_start, x_start) in enumerate(chunks):
-        print(f"Processing chunk {i+1}/4...")
-        processed_chunk = upscale_direct(chunk, session)
-        
-        # Place in output
-        y_end = y_start + processed_chunk.shape[0]
-        x_end = x_start + processed_chunk.shape[1]
-        output[y_start:y_end, x_start:x_end] = processed_chunk
-        
-        # Aggressive cleanup after each chunk
-        del processed_chunk
-        gc.collect()
+    for i in range(rows):
+        for j in range(cols):
+            print(f"Processing chunk {i*cols + j + 1}/{rows*cols}...")
+            
+            # Calculate chunk boundaries with overlap
+            y_start = max(0, i * chunk_h - overlap)
+            y_end = min(h, (i + 1) * chunk_h + overlap)
+            x_start = max(0, j * chunk_w - overlap)
+            x_end = min(w, (j + 1) * chunk_w + overlap)
+            
+            # Extract chunk
+            chunk = img_arr[y_start:y_end, x_start:x_end]
+            
+            # Process chunk
+            processed_chunk = upscale_direct(chunk, session)
+            
+            # Calculate output position (accounting for overlap removal)
+            out_y_start = i * chunk_h * 4
+            out_y_end = out_y_start + (y_end - y_start - 2*overlap) * 4
+            out_x_start = j * chunk_w * 4  
+            out_x_end = out_x_start + (x_end - x_start - 2*overlap) * 4
+            
+            # Remove overlap from processed chunk
+            crop_top = overlap * 4 if i > 0 else 0
+            crop_bottom = processed_chunk.shape[0] - overlap * 4 if i < rows - 1 else processed_chunk.shape[0]
+            crop_left = overlap * 4 if j > 0 else 0
+            crop_right = processed_chunk.shape[1] - overlap * 4 if j < cols - 1 else processed_chunk.shape[1]
+            
+            cropped_chunk = processed_chunk[crop_top:crop_bottom, crop_left:crop_right]
+            
+            # Place in output
+            actual_h, actual_w = cropped_chunk.shape[:2]
+            output[out_y_start:out_y_start + actual_h, out_x_start:out_x_start + actual_w] = cropped_chunk
+            
+            # Aggressive cleanup after each chunk
+            del processed_chunk, cropped_chunk, chunk
+            gc.collect()
     
     return output
 
@@ -160,48 +195,51 @@ def upscale_direct(img_arr: np.ndarray, session) -> np.ndarray:
     
     return output
 
-def smart_resize_for_speed(img: Image.Image) -> Image.Image:
-    """Smart resize prioritizing processing speed"""
+def smart_resize_for_quality(img: Image.Image) -> Image.Image:
+    """Smart resize balancing quality and performance"""
     w, h = img.size
     pixels = w * h
     
-    # If image is tiny, don't resize
-    if pixels <= 1600:  # 40x40
+    # Don't resize small images - keep original quality
+    if pixels <= 10000:  # 100x100
+        print(f"Small image ({w}x{h}) - keeping original size")
         return img
     
-    # Calculate resize to stay under MAX_IMAGE_DIMENSION
+    # Only resize if necessary for memory management
     if max(w, h) > MAX_IMAGE_DIMENSION:
         scale = MAX_IMAGE_DIMENSION / max(w, h)
-        new_w = max(8, int(w * scale))  # Minimum 8px
-        new_h = max(8, int(h * scale))
+        new_w = max(32, int(w * scale))  # Minimum 32px for decent quality
+        new_h = max(32, int(h * scale))
         
-        # Use NEAREST for speed on tiny images
-        resample = Image.NEAREST if max(new_w, new_h) < 50 else Image.LANCZOS
-        
-        resized = img.resize((new_w, new_h), resample)
-        print(f"Speed-optimized resize: {w}x{h} -> {new_w}x{new_h}")
+        # Use high-quality LANCZOS for better results
+        resized = img.resize((new_w, new_h), Image.LANCZOS)
+        print(f"Quality-balanced resize: {w}x{h} -> {new_w}x{new_h}")
         return resized
     
     return img
 
-def enhance_thumbnail_fast(img: Image.Image) -> Image.Image:
-    """Fast thumbnail enhancement without heavy filters"""
-    # Simple contrast boost instead of unsharp mask
-    enhancer = ImageEnhance.Contrast(img)
-    enhanced = enhancer.enhance(1.1)
-    return enhanced
+def enhance_thumbnail_quality(img: Image.Image) -> Image.Image:
+    """Better thumbnail enhancement balancing speed and quality"""
+    # Apply both contrast and sharpness for better results
+    contrast_enhancer = ImageEnhance.Contrast(img)
+    contrast_enhanced = contrast_enhancer.enhance(1.15)
+    
+    sharpness_enhancer = ImageEnhance.Sharpness(contrast_enhanced)
+    final_enhanced = sharpness_enhancer.enhance(1.1)
+    
+    return final_enhanced
 
-def save_image_ultra_fast(img, is_thumbnail=False):
-    """Ultra fast image saving - prioritize speed over everything"""
+def save_image_balanced(img, is_thumbnail=False):
+    """Balanced image saving - better quality while maintaining speed"""
     buf = io.BytesIO()
     
     if img.mode == 'RGBA':
-        # PNG with minimal compression
-        img.save(buf, format='PNG', optimize=False, compress_level=1)
+        # PNG with moderate compression for better quality
+        img.save(buf, format='PNG', optimize=True, compress_level=6)
     else:
-        # JPEG with lower quality for speed
-        quality = 85 if is_thumbnail else JPEG_QUALITY
-        img.save(buf, format='JPEG', quality=quality, optimize=False, progressive=False)
+        # JPEG with better quality
+        quality = 90 if is_thumbnail else JPEG_QUALITY
+        img.save(buf, format='JPEG', quality=quality, optimize=True, progressive=False)
     
     result = buf.getvalue()
     buf.close()
@@ -252,24 +290,20 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         
         gc.collect()
         
-        # Smart resize for maximum speed
-        img = smart_resize_for_speed(img)
+        # Smart resize balancing quality and performance
+        img = smart_resize_for_quality(img)
         print(f"Processing size: {img.size}")
         
-        # Ultra-fast upscaling
-        print("Starting ultra-fast upscale...")
+        # Adaptive upscaling based on image size
+        print("Starting adaptive upscale...")
         upscale_start = time.perf_counter()
         
         img_arr = np.array(img)
         del img
         gc.collect()
         
-        # Use micro-chunking for larger images
-        if max(img_arr.shape[:2]) > 40:
-            output_arr = upscale_micro_chunks(img_arr)
-        else:
-            session = get_session_optimized()
-            output_arr = upscale_direct(img_arr, session)
+        # Use adaptive chunking strategy
+        output_arr = upscale_adaptive_chunks(img_arr)
         
         upscale_time = time.perf_counter() - upscale_start
         print(f"Upscale completed in {upscale_time:.1f}s")
@@ -285,21 +319,21 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         
         # Handle alpha channel if needed
         if has_alpha and alpha_channel is not None:
-            alpha_resized = alpha_channel.resize(final_size, Image.NEAREST)  # NEAREST for speed
+            alpha_resized = alpha_channel.resize(final_size, Image.LANCZOS)  # Better quality
             output_rgba = Image.merge('RGBA', (*output_img.split(), alpha_resized))
             del output_img, alpha_resized, alpha_channel
             output_img = output_rgba
             gc.collect()
         
-        # Create thumbnail first (smaller memory footprint)
-        print("Creating thumbnail...")
+        # Create thumbnail with better quality
+        print("Creating quality thumbnail...")
         thumb_start = time.perf_counter()
         
         thumb = output_img.copy()
-        thumb.thumbnail((THUMBNAIL_DIMENSION, THUMBNAIL_DIMENSION), Image.NEAREST)  # NEAREST for speed
-        thumb = enhance_thumbnail_fast(thumb)
+        thumb.thumbnail((THUMBNAIL_DIMENSION, THUMBNAIL_DIMENSION), Image.LANCZOS)
+        thumb = enhance_thumbnail_quality(thumb)
         
-        thumb_bytes = save_image_ultra_fast(thumb, is_thumbnail=True)
+        thumb_bytes = save_image_balanced(thumb, is_thumbnail=True)
         del thumb
         gc.collect()
         
@@ -313,8 +347,8 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         # Upload thumbnail
         thumb_upload_task = run_sync_in_thread(CloudinaryService.upload_thumbnail, thumb_bytes, job_id)
         
-        # Prepare main image
-        final_bytes = save_image_ultra_fast(output_img, is_thumbnail=False)
+        # Prepare main image with better quality
+        final_bytes = save_image_balanced(output_img, is_thumbnail=False)
         del output_img
         gc.collect()
         
@@ -342,7 +376,7 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
         scale_factor = final_size[0] / original_size[0]
         
         info = {
-            "model_used": "ONNX_Render_Free_Tier_Optimized",
+            "model_used": "ONNX_Quality_Balanced_Render",
             "processing_time_s": round(upscale_time, 1),
             "total_time_s": round(total_time, 1),
             "download_time_s": round(download_time, 1),
@@ -360,7 +394,7 @@ async def perform_upscaling(job_id: str, image_url: str, config: dict):
             "job_id": job_id,
             "timestamp": time.time(),
             "max_dimension_used": MAX_IMAGE_DIMENSION,
-            "optimization_level": "render_free_tier"
+            "optimization_level": "quality_balanced"
         }
         
         print(f"Job {job_id} completed successfully in {total_time:.1f}s!")
