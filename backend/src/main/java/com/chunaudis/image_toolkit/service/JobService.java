@@ -2,16 +2,17 @@ package com.chunaudis.image_toolkit.service;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 //Retrys
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.retry.annotation.Backoff;
-import org.springframework.transaction.annotation.Transactional;
 
 
 import com.chunaudis.image_toolkit.dto.JobMessageDTO;
@@ -74,18 +75,25 @@ public class JobService {
         job.setJobConfig(jobConfig != null ? convertMapToJsonString(jobConfig) : null);
 
         Job savedJob = jobRepository.save(job);
-        log.info("Created job {} with status UPLOADING for instant response", savedJob.getJobId());
+        jobRepository.flush(); // Force immediate database write to avoid race conditions
+        
+        log.info("Created and flushed job {} with status UPLOADING for instant response", savedJob.getJobId());
         
         return savedJob;
     }
 
     /**
      * NEW: Updates job status with message - for upload progress tracking
+     * Enhanced with retry logic and better transaction handling
      */
-    @Transactional
+    @Retryable(
+        value = { EntityNotFoundException.class },
+        maxAttempts = 5,
+        backoff = @Backoff(delay = 100, multiplier = 2, maxDelay = 1000)
+    )
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateJobStatus(UUID jobId, JobStatusEnum status, String message) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Job not found with ID: " + jobId));
+        Job job = findJobWithRetry(jobId, 3);
         
         job.setStatus(status);
         if (message != null) {
@@ -177,10 +185,9 @@ public class JobService {
         return job;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Job updateJobStatus(UUID jobId, JobStatusUpdateRequestDTO updateRequest) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Job not found with ID: " + jobId));
+        Job job = findJobWithRetry(jobId, 3);
 
         job.setStatus(updateRequest.getStatus());
         job.setErrorMessage(updateRequest.getErrorMessage()); // Can be null
@@ -236,8 +243,7 @@ public class JobService {
     }
 
     public Job getJobStatus(UUID jobId) {
-        return jobRepository.findById(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Job not found with ID: " + jobId));
+        return findJobWithRetry(jobId, 3);
     }
 
     /**
@@ -257,6 +263,37 @@ public class JobService {
             
             log.info("Upgraded job {} to premium quality", jobId);
         }
+    }
+
+    /**
+     * Helper method to find job with retry logic to handle race conditions
+     */
+    private Job findJobWithRetry(UUID jobId, int maxAttempts) {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            Optional<Job> jobOpt = jobRepository.findById(jobId);
+            if (jobOpt.isPresent()) {
+                return jobOpt.get();
+            }
+            
+            if (attempt < maxAttempts) {
+                log.warn("Job {} not found on attempt {}/{}, retrying in {}ms...", 
+                        jobId, attempt, maxAttempts, 50 * attempt);
+                try {
+                    Thread.sleep(50 * attempt); // Exponential backoff: 50ms, 100ms, 150ms
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for job", e);
+                }
+            }
+        }
+        
+        // Final attempt - log existing jobs for debugging
+        log.error("Job {} not found after {} attempts. Existing jobs in database:", jobId, maxAttempts);
+        jobRepository.findAll().stream()
+                .limit(10) // Limit to avoid spam
+                .forEach(j -> log.debug("Existing job: {} with status: {}", j.getJobId(), j.getStatus()));
+        
+        throw new EntityNotFoundException("Job not found with ID: " + jobId + " after " + maxAttempts + " attempts");
     }
 
     // Helper to convert Map to JSON string
