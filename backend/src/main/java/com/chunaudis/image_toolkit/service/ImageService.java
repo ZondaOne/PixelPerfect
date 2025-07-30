@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -42,6 +43,10 @@ public class ImageService {
     private static final String[] ALLOWED_MIME_TYPES = {
         "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/bmp"
     };
+    
+    // Retry configuration
+    private static final int MAX_UPLOAD_RETRIES = 3;
+    private static final long RETRY_DELAY_MS = 2000; // 2 seconds
 
     private final ImageRepository imageRepository;
     private final UserRepository userRepository; 
@@ -66,86 +71,119 @@ public class ImageService {
     public Job processUploadedImage(MultipartFile file, ImageUploadRequestDTO requestDTO,
             Map<String, Object> jobConfig) {
         
-        long startTime = System.nanoTime(); // More precise timing
-        log.info("🚀 LIGHTNING upload process started");
+        long startTime = System.nanoTime();
+        log.info("🚀 LIGHTNING upload process started for file: {}", file.getOriginalFilename());
         
-        // STEP 1: INSTANT validation - ZERO file reading (< 5ms)
-        long validationStart = System.nanoTime();
-        validateFileWithZeroIO(file);
-        log.debug("⚡ Validation: {}ms", (System.nanoTime() - validationStart) / 1_000_000);
-        
-        // STEP 2: User lookup with timeout protection (< 10ms expected)
-        long userStart = System.nanoTime();
-        UUID userId = UUID.fromString(requestDTO.getUserId());
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
-        log.debug("⚡ User lookup: {}ms", (System.nanoTime() - userStart) / 1_000_000);
-        
-        // STEP 3: Create minimal image entity (< 5ms)
-        long entityStart = System.nanoTime();
-        Image image = createMinimalImageEntity(file, user);
-        Image savedImage = imageRepository.save(image);
-        log.debug("⚡ Entity creation: {}ms", (System.nanoTime() - entityStart) / 1_000_000);
-        
-        // STEP 4: Create job instantly (< 10ms)
-        long jobStart = System.nanoTime();
-        Job job = jobService.createJob(savedImage, requestDTO.getJobType(), jobConfig, userId);
-        Job savedJob = jobService.saveJob(job);
-        log.debug("⚡ Job creation: {}ms", (System.nanoTime() - jobStart) / 1_000_000);
-        
-        // STEP 5: Fire-and-forget async processing (< 1ms)
-        CompletableFuture.runAsync(() -> processUploadAsync(file, savedImage, savedJob, jobConfig))
-                .exceptionally(throwable -> {
-                    log.error("Async upload failed: {}", throwable.getMessage(), throwable);
-                    return null;
-                });
-        
-        long totalTime = (System.nanoTime() - startTime) / 1_000_000;
-        log.info("🏆 LIGHTNING response ready in {}ms - upload happening in background", totalTime);
-        
-        // GUARANTEE: This should NEVER take more than 50ms
-        if (totalTime > 50) {
-            log.warn("⚠️ Response took {}ms - investigating bottleneck", totalTime);
+        try {
+            // STEP 1: Enhanced validation with corruption check
+            long validationStart = System.nanoTime();
+            validateFileWithEnhancedChecks(file);
+            log.debug("⚡ Validation: {}ms", (System.nanoTime() - validationStart) / 1_000_000);
+            
+            // STEP 2: User lookup with timeout protection
+            long userStart = System.nanoTime();
+            UUID userId = UUID.fromString(requestDTO.getUserId());
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+            log.debug("⚡ User lookup: {}ms", (System.nanoTime() - userStart) / 1_000_000);
+            
+            // STEP 3: Create minimal image entity
+            long entityStart = System.nanoTime();
+            Image image = createMinimalImageEntity(file, user);
+            Image savedImage = imageRepository.save(image);
+            log.debug("⚡ Entity creation: {}ms", (System.nanoTime() - entityStart) / 1_000_000);
+            
+            // STEP 4: Create job instantly
+            long jobStart = System.nanoTime();
+            Job job = jobService.createJob(savedImage, requestDTO.getJobType(), jobConfig, userId);
+            Job savedJob = jobService.saveJob(job);
+            log.debug("⚡ Job creation: {}ms", (System.nanoTime() - jobStart) / 1_000_000);
+            
+            // STEP 5: Fire-and-forget async processing with enhanced error handling
+            CompletableFuture.runAsync(() -> processUploadAsyncWithRetry(file, savedImage, savedJob, jobConfig))
+                    .exceptionally(throwable -> {
+                        log.error("❌ Async upload failed for image {}: {}", 
+                            savedImage.getImageId(), throwable.getMessage(), throwable);
+                        
+                        // Update job status with detailed error
+                        try {
+                            String errorMessage = throwable.getCause() != null ? 
+                                throwable.getCause().getMessage() : throwable.getMessage();
+                            jobService.updateJobStatus(savedJob.getJobId(), JobStatusEnum.FAILED, 
+                                "Upload failed: " + errorMessage);
+                        } catch (Exception e) {
+                            log.error("Failed to update job status after upload failure", e);
+                        }
+                        
+                        return null;
+                    });
+            
+            long totalTime = (System.nanoTime() - startTime) / 1_000_000;
+            log.info("🏆 LIGHTNING response ready in {}ms - upload happening in background", totalTime);
+            
+            if (totalTime > 50) {
+                log.warn("⚠️ Response took {}ms - investigating bottleneck", totalTime);
+            }
+            
+            return savedJob;
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to process upload for file {}: {}", 
+                file.getOriginalFilename(), e.getMessage(), e);
+            throw e;
         }
-        
-        return savedJob;
     }
 
     /**
-     * ZERO-IO validation - only checks metadata, never reads file content
+     * Enhanced validation with corruption and detailed checks
      */
-    private void validateFileWithZeroIO(MultipartFile file) {
-        // Size check - O(1) operation
+    private void validateFileWithEnhancedChecks(MultipartFile file) {
+        // Basic checks
         if (file.isEmpty() || file.getSize() == 0) {
             throw new IllegalArgumentException("File cannot be empty");
         }
         
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new IllegalArgumentException(
-                String.format("File too large: %dMB (max: %dMB)", 
-                file.getSize() / (1024 * 1024), MAX_FILE_SIZE / (1024 * 1024)));
+                String.format("File too large: %.2fMB (max: %dMB)", 
+                file.getSize() / (1024.0 * 1024.0), MAX_FILE_SIZE / (1024 * 1024)));
         }
         
-        // Content type check - O(1) operation
+        // Content type validation
         String contentType = file.getContentType();
         if (contentType == null) {
-            throw new IllegalArgumentException("Unknown file type");
+            throw new IllegalArgumentException("Unknown file type - no content type detected");
         }
         
-        // Ultra-fast MIME validation using startsWith
-        if (!contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Not an image file: " + contentType);
+        boolean isValidType = false;
+        for (String allowedType : ALLOWED_MIME_TYPES) {
+            if (allowedType.equalsIgnoreCase(contentType)) {
+                isValidType = true;
+                break;
+            }
         }
         
-        // Filename check - O(1) operation  
+        if (!isValidType) {
+            throw new IllegalArgumentException("Unsupported file type: " + contentType + 
+                ". Allowed types: " + String.join(", ", ALLOWED_MIME_TYPES));
+        }
+        
+        // Filename validation
         String filename = file.getOriginalFilename();
         if (filename == null || filename.trim().isEmpty()) {
-            throw new IllegalArgumentException("Invalid filename");
+            throw new IllegalArgumentException("Invalid or missing filename");
         }
+        
+        // Quick corruption check
+        if (isImageCorrupt(file)) {
+            throw new IllegalArgumentException("File appears to be corrupted or invalid image format");
+        }
+        
+        log.debug("✅ File validation passed: {} ({})", filename, contentType);
     }
 
     /**
-     * Creates absolute minimal image entity - no expensive operations
+     * Creates minimal image entity with better defaults
      */
     private Image createMinimalImageEntity(MultipartFile file, User user) {
         Image image = new Image();
@@ -154,14 +192,20 @@ public class ImageService {
         image.setOriginalFilesizeBytes(file.getSize());
         image.setOriginalFormat(extractFormatFast(file.getContentType()));
         
-        // Use smart defaults based on common image sizes
+        // Smarter defaults based on file size and name
         String filename = file.getOriginalFilename().toLowerCase();
-        if (filename.contains("portrait") || filename.contains("vertical")) {
+        long fileSize = file.getSize();
+        
+        // Estimate dimensions based on file size (rough heuristic)
+        if (fileSize < 100_000) { // < 100KB, likely small image
+            image.setOriginalWidth(400);
+            image.setOriginalHeight(300);
+        } else if (fileSize > 5_000_000) { // > 5MB, likely high-res
+            image.setOriginalWidth(2048);
+            image.setOriginalHeight(1536);
+        } else if (filename.contains("portrait") || filename.contains("vertical")) {
             image.setOriginalWidth(600);
             image.setOriginalHeight(800);
-        } else if (filename.contains("landscape") || filename.contains("horizontal")) {
-            image.setOriginalWidth(800);
-            image.setOriginalHeight(600);
         } else {
             image.setOriginalWidth(800);
             image.setOriginalHeight(600);
@@ -174,45 +218,111 @@ public class ImageService {
     }
 
     /**
-     * Async upload processing - happens AFTER response is sent
+     * Async upload processing with retry logic
      */
-    private void processUploadAsync(MultipartFile file, Image image, Job job, Map<String, Object> jobConfig) {
+    private void processUploadAsyncWithRetry(MultipartFile file, Image image, Job job, Map<String, Object> jobConfig) {
+        UUID imageId = image.getImageId();
+        UUID jobId = job.getJobId();
+        
+        log.info("🔄 Starting async upload with retry for image {} (job {})", imageId, jobId);
+        
+        // Update status immediately
+        jobService.updateJobStatus(jobId, JobStatusEnum.PROCESSING, "Preparing upload...");
+        
+        // Try upload with retries
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+            try {
+                log.info("🔄 Upload attempt {}/{} for image {}", attempt, MAX_UPLOAD_RETRIES, imageId);
+                
+                processUploadAttempt(file, image, job, jobConfig);
+                
+                log.info("✅ Upload successful on attempt {} for image {}", attempt, imageId);
+                return; // Success!
+                
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("❌ Upload attempt {}/{} failed for image {}: {}", 
+                    attempt, MAX_UPLOAD_RETRIES, imageId, e.getMessage());
+                
+                // Update status with retry info
+                if (attempt < MAX_UPLOAD_RETRIES) {
+                    jobService.updateJobStatus(jobId, JobStatusEnum.PROCESSING, 
+                        String.format("Upload attempt %d failed, retrying... (%s)", attempt, e.getMessage()));
+                    
+                    // Wait before retry with exponential backoff
+                    try {
+                        long delay = RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
+                        Thread.sleep(delay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Upload interrupted", ie);
+                    }
+                } else {
+                    // Final attempt failed
+                    log.error("❌ All upload attempts failed for image {}", imageId, e);
+                    jobService.updateJobStatus(jobId, JobStatusEnum.FAILED, 
+                        "Upload failed after " + MAX_UPLOAD_RETRIES + " attempts: " + e.getMessage());
+                }
+            }
+        }
+        
+        // If we get here, all retries failed
+        throw new RuntimeException("Upload failed after " + MAX_UPLOAD_RETRIES + " attempts", lastException);
+    }
+
+    /**
+     * Single upload attempt with detailed logging
+     */
+    private void processUploadAttempt(MultipartFile file, Image image, Job job, Map<String, Object> jobConfig) 
+            throws Exception {
         long startTime = System.currentTimeMillis();
         UUID imageId = image.getImageId();
         UUID jobId = job.getJobId();
         
-        log.info("🔄 Starting async upload for image {} (job {})", imageId, jobId);
-        
         try {
-            // Update status immediately
-            jobService.updateJobStatus(jobId, JobStatusEnum.PROCESSING, "Uploading to cloud storage...");
-            
-            // Start dimension extraction in parallel (don't block upload)
+            // Start dimension extraction in parallel
             CompletableFuture<int[]> dimensionsFuture = extractDimensionsAsyncOptimized(file);
             
-            // Upload to Cloudinary - this is the main bottleneck
-            log.info("☁️ Starting Cloudinary upload for image {}", imageId);
+            // Pre-upload validation
+            if (file.getSize() == 0) {
+                throw new IllegalStateException("File size is zero during upload");
+            }
+            
+            // Update status
+            jobService.updateJobStatus(jobId, JobStatusEnum.PROCESSING, "Uploading to cloud storage...");
+            
+            // Upload to Cloudinary with detailed logging
+            log.info("☁️ Starting Cloudinary upload for image {} (size: {})", imageId, file.getSize());
             long cloudinaryStart = System.currentTimeMillis();
             
             String cloudinaryUrl = cloudinaryStorageService.uploadOriginalImage(file, image.getUser().getUserId(), imageId);
+            
+            if (cloudinaryUrl == null || cloudinaryUrl.trim().isEmpty()) {
+                throw new RuntimeException("Cloudinary upload returned null/empty URL");
+            }
+            
             String publicId = cloudinaryStorageService.extractPublicId(cloudinaryUrl);
+            if (publicId == null || publicId.trim().isEmpty()) {
+                throw new RuntimeException("Failed to extract public ID from Cloudinary URL: " + cloudinaryUrl);
+            }
             
             long cloudinaryTime = System.currentTimeMillis() - cloudinaryStart;
-            log.info("☁️ Cloudinary upload completed in {}ms for image {}", cloudinaryTime, imageId);
+            log.info("☁️ Cloudinary upload completed in {}ms for image {} -> {}", 
+                cloudinaryTime, imageId, publicId);
             
             // Update image with upload results
             image.setCloudinaryPublicId(publicId);
             image.setOriginalStoragePath(cloudinaryUrl);
             
-            // Try to get real dimensions (with short timeout)
+            // Get real dimensions with timeout
             try {
-                int[] dimensions = dimensionsFuture.get(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                int[] dimensions = dimensionsFuture.get(1000, TimeUnit.MILLISECONDS);
                 image.setOriginalWidth(dimensions[0]);
                 image.setOriginalHeight(dimensions[1]);
                 log.debug("📐 Updated to real dimensions: {}x{}", dimensions[0], dimensions[1]);
             } catch (Exception e) {
-                log.debug("📐 Using default dimensions for image {} (timeout)", imageId);
-                // Keep the smart defaults we set earlier
+                log.debug("📐 Using estimated dimensions for image {} ({})", imageId, e.getMessage());
             }
             
             // Save updated image
@@ -226,15 +336,14 @@ public class ImageService {
             jobService.dispatchJobForProcessing(job, cloudinaryUrl);
             
         } catch (Exception e) {
-            log.error("❌ Async upload failed for image {}: {}", imageId, e.getMessage(), e);
+            log.error("❌ Upload attempt failed for image {}: {}", imageId, e.getMessage(), e);
             
-            // Update job with error
-            jobService.updateJobStatus(jobId, JobStatusEnum.FAILED, "Upload failed: " + e.getMessage());
-            
-            // Cleanup async
+            // Cleanup any partial upload
             if (image.getCloudinaryPublicId() != null) {
                 cleanupAsync(image.getCloudinaryPublicId());
             }
+            
+            throw e; // Re-throw for retry logic
         }
     }
 
@@ -246,10 +355,15 @@ public class ImageService {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 // Use the most efficient method - ImageReader with minimal buffer
-                byte[] header = new byte[Math.min(8192, (int) file.getSize())]; // Only read first 8KB
-                file.getInputStream().read(header);
+                int headerSize = Math.min(8192, (int) file.getSize());
+                byte[] header = new byte[headerSize];
                 
-                ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(header));
+                int bytesRead = file.getInputStream().read(header);
+                if (bytesRead <= 0) {
+                    throw new IOException("Could not read file header");
+                }
+                
+                ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(header, 0, bytesRead));
                 ImageReader reader = ImageIO.getImageReaders(iis).next();
                 
                 if (reader != null) {
@@ -259,6 +373,10 @@ public class ImageService {
                         int height = reader.getHeight(0);
                         
                         // Validate dimensions
+                        if (width <= 0 || height <= 0) {
+                            throw new IllegalArgumentException("Invalid image dimensions: " + width + "x" + height);
+                        }
+                        
                         if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
                             throw new IllegalArgumentException(
                                 String.format("Image too large: %dx%d (max: %dx%d)", 
@@ -279,41 +397,55 @@ public class ImageService {
     }
 
     /**
-     * Ultra-fast corruption check - only reads image headers
+     * Enhanced corruption check with better error handling
      */
     public boolean isImageCorrupt(MultipartFile file) {
         try {
-            // Only read minimal header data for corruption check
-            byte[] header = new byte[Math.min(4096, (int) file.getSize())]; 
-            file.getInputStream().read(header);
+            if (file.getSize() < 50) { // Too small to be a valid image
+                return true;
+            }
             
-            ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(header));
+            // Only read minimal header data for corruption check
+            int headerSize = Math.min(4096, (int) file.getSize());
+            byte[] header = new byte[headerSize];
+            
+            int bytesRead = file.getInputStream().read(header);
+            if (bytesRead <= 0) {
+                return true; // Could not read any data
+            }
+            
+            ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(header, 0, bytesRead));
             ImageReader reader = ImageIO.getImageReaders(iis).next();
             
             if (reader != null) {
                 try {
                     reader.setInput(iis);
-                    // Just try to read basic info, don't load the full image
-                    reader.getWidth(0);
-                    reader.getHeight(0);
-                    return false; // Not corrupt
+                    // Try to read basic info without loading the full image
+                    int width = reader.getWidth(0);
+                    int height = reader.getHeight(0);
+                    return width <= 0 || height <= 0; // Invalid dimensions = corrupt
                 } finally {
                     reader.dispose();
                     iis.close();
                 }
             }
         } catch (Exception e) {
-            log.debug("Image corruption check failed: {}", e.getMessage());
+            log.debug("Image corruption check failed for {}: {}", file.getOriginalFilename(), e.getMessage());
         }
         return true; // Corrupt or unreadable
     }
 
     /**
-     * Async cleanup
+     * Async cleanup with better error handling
      */
     @Async
     public void cleanupAsync(String publicId) {
         try {
+            if (publicId == null || publicId.trim().isEmpty()) {
+                log.warn("🧹 Cannot cleanup: invalid public ID");
+                return;
+            }
+            
             cloudinaryStorageService.deleteImage(publicId);
             log.info("🧹 Cleanup completed for Cloudinary image: {}", publicId);
         } catch (Exception e) {
@@ -353,7 +485,7 @@ public class ImageService {
             return jobService.createAndDispatchJob(savedImage, requestDTO.getJobType(), null, jobConfig, userId);
             
         } catch (Exception e) {
-            log.error("Image generation error: {}", e.getMessage());
+            log.error("Image generation error: {}", e.getMessage(), e);
             throw new RuntimeException("Image generation error: " + e.getMessage(), e);
         }
     }
