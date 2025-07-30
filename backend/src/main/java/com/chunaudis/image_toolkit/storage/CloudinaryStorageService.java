@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.HashMap;
+
 
 import java.io.IOException;
 import java.util.Map;
@@ -133,4 +135,27 @@ public class CloudinaryStorageService {
             return null;
         }
     }
+
+    // Agregar a CloudinaryStorageService.java
+public String uploadOriginalImageFromBytes(byte[] fileData, String originalFilename, String contentType, 
+        UUID userId, UUID imageId) throws Exception {
+    
+    Map<String, Object> params = new HashMap<>();
+    params.put("folder", "users/" + userId + "/originals");
+    params.put("public_id", imageId.toString());
+    params.put("resource_type", "image");
+    params.put("format", extractFormatFromContentType(contentType));
+    
+    // Upload from byte array
+    Map<String, Object> result = cloudinary.uploader().upload(fileData, params);
+    
+    return (String) result.get("secure_url");
+}
+
+private String extractFormatFromContentType(String contentType) {
+    if (contentType != null && contentType.startsWith("image/")) {
+        return contentType.substring(6); // Remove "image/" prefix
+    }
+    return "auto";
+}
 }
