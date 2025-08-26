@@ -331,6 +331,13 @@ private String generateGoogleUserHash(String googleId, String email) {
     // Use your existing password encoder to create a hash
     return passwordEncoder.encode(googleIdentifier);
 }
+
+//endpoint for maintaining alive session only 200 ok response
+@GetMapping("/keep-alive")
+public ResponseEntity<?> keepAlive() {
+    return ResponseEntity.ok().build();
+
+}
 }
 
 
