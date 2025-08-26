@@ -84,6 +84,11 @@ async def shutdown_event():
     
     logger.info("Service shutdown completed")
 
+@app.get("/keep-alive")
+async def keep_alive():
+    return {"status": "bg-removal alive"}
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
