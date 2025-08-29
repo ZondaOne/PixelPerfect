@@ -14,7 +14,7 @@ public class EmailService {
     
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:NOT_SET}")
+    @Value("${spring.mail.username:zondasys@gmail.com}")
     private String mailUsername;
 
     @Value("${spring.mail.host:NOT_SET}")
@@ -29,7 +29,7 @@ public class EmailService {
 
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "Password Reset Request";
-        String resetLink = "http://localhost:3000/reset-password?token=" + token; // Change to your frontend URL
+        String resetLink = "https://pixelperfect.zonda.one/reset-password?token=" + token;
 
         String text = "Hello!\n\n"
                     + "You received this email because you requested to reset your password.\n\n"
@@ -40,7 +40,7 @@ public class EmailService {
                     + "The Chunaudis Team";
 
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("zondasys@gmail.com");
+        message.setFrom(mailUsername); 
         message.setTo(to);
         message.setSubject(subject);
         message.setText(text);
@@ -59,7 +59,7 @@ public class EmailService {
         
         try {
             String subject = "Verify Your Email Address";
-            String verificationLink = "http://localhost:3000/verify-email?token=" + token;
+            String verificationLink = "https://pixelperfect.zonda.one/verify-email?token=" + token;
 
             String text = "Hello!\n\n"
                         + "Thank you for signing up with PixelPerfect Image Toolkit!\n\n"
@@ -71,7 +71,7 @@ public class EmailService {
                         + "The Zonda Team";
 
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(mailUsername); // Use configured username as sender
+            message.setFrom(mailUsername);
             message.setTo(to);
             message.setSubject(subject);
             message.setText(text);
@@ -89,11 +89,8 @@ public class EmailService {
             log.error("❌ Failed to send email to {}", to);
             log.error("Error type: {}", e.getClass().getSimpleName());
             log.error("Error message: {}", e.getMessage());
-            
-            // Log the full stack trace for detailed debugging
             log.error("Full stack trace:", e);
             
-            // Check for specific error types
             if (e.getMessage() != null) {
                 if (e.getMessage().contains("Authentication failed")) {
                     log.error("🔐 AUTHENTICATION ISSUE: Check Gmail credentials and App Password");
@@ -104,7 +101,60 @@ public class EmailService {
                 }
             }
             
-            throw e; // Re-throw to be handled by calling method
+            throw e;
+        }
+    }
+
+    public void sendWaitlistConfirmationEmail(String to) {
+        log.info("=== WAITLIST CONFIRMATION ATTEMPT ===");
+        log.info("Recipient: {}", to);
+        log.info("Mail Configuration:");
+        log.info("  Host: {}", mailHost);
+        log.info("  Port: {}", mailPort);
+        log.info("  Username: {}", mailUsername);
+        log.info("  Password set: {}", mailUsername != null && !mailUsername.equals("NOT_SET") ? "YES" : "NO");
+
+        try {
+            String subject = "You're on the Beta Waitlist!";
+            String text = "Hello!\n\n"
+                        + "Thank you for joining our beta waitlist!\n"
+                        + "We'll notify you as soon as we launch.\n\n"
+                        + "Best regards,\n"
+                        + "The PixelPerfect AI Team";
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            // Usar la misma configuración que los otros métodos
+            message.setFrom(mailUsername);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+
+            log.info("Attempting to send waitlist confirmation email...");
+            log.info("From: {}", mailUsername);
+            log.info("To: {}", to);
+            log.info("Subject: {}", subject);
+
+            mailSender.send(message);
+
+            log.info("✅ Waitlist confirmation email sent successfully to {}", to);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send waitlist email to {}", to);
+            log.error("Error type: {}", e.getClass().getSimpleName());
+            log.error("Error message: {}", e.getMessage());
+            log.error("Full stack trace:", e);
+
+            if (e.getMessage() != null) {
+                if (e.getMessage().contains("Authentication failed")) {
+                    log.error("🔐 AUTHENTICATION ISSUE: Check Gmail credentials and App Password");
+                } else if (e.getMessage().contains("Connection")) {
+                    log.error("🌐 CONNECTION ISSUE: Check network and SMTP settings");
+                } else if (e.getMessage().contains("535")) {
+                    log.error("🚫 SMTP AUTH ERROR: Invalid username/password or 2FA not enabled");
+                }
+            }
+
+            throw e;
         }
     }
 }
