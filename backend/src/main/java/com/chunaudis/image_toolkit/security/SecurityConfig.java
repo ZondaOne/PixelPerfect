@@ -48,6 +48,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
             .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/jobs/*/status")).permitAll() // Allow job status callbacks
             .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll() // For development.
             .requestMatchers(AntPathRequestMatcher.antMatcher("/health")).permitAll()
+            .requestMatchers(AntPathRequestMatcher.antMatcher("/waitlist")).permitAll() 
             .requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/images/**")).authenticated() // Secure image proxy endpoints
             
             .anyRequest().authenticated()

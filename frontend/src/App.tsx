@@ -79,6 +79,7 @@ const AppWrapper = () => {
     return <Navigate to="/login" replace />;
   }
 
+  
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />

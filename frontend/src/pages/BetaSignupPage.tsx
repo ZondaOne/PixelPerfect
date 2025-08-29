@@ -9,18 +9,38 @@ const BetaSignupPage: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!email) return;
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsLoading(false);
+  setIsLoading(true);
+
+  try {
+    const response = await fetch('https://backend-1li0.onrender.com/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    let data: any = {};
+    const text = await response.text(); 
+    if (text) {
+      data = JSON.parse(text);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to join waitlist');
+    }
+
     setIsSubmitted(true);
-  };
+  } catch (err: any) {
+    alert(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
   const handleSkipDebug = () => {
     window.location.href = '/';
