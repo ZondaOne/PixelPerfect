@@ -42,9 +42,6 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
 
-  const handleSkipDebug = () => {
-    window.location.href = '/';
-  };
 
   if (isSubmitted) {
     return (
@@ -67,14 +64,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                 Thank you for joining our beta waitlist. We'll notify you as soon as we launch.
               </p>
               
-              <button
-                onClick={handleSkipDebug}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Star size={16} />
-                Continue to App
-                <ArrowRight size={16} />
-              </button>
             </div>
           </div>
         </div>
@@ -151,14 +140,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-200/60">
-            <button
-              onClick={handleSkipDebug}
-              className="w-full text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors duration-200"
-            >
-              Skip for now (Debug Mode)
-            </button>
-          </div>
         </div>
       </div>
     </div>

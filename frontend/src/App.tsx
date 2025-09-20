@@ -58,6 +58,13 @@ const AppWrapper = () => {
 
   const currentPath = location.pathname;
 
+  // CLOSED BETA: Only allow beta signup page
+  const CLOSED_BETA = true; // Set to false to disable closed beta mode
+
+  if (CLOSED_BETA && currentPath !== '/beta-signup') {
+    return <Navigate to="/beta-signup" replace />;
+  }
+
   // Rutas que NO requieren autenticación
   const publicRoutes = ['/login', '/AuthForm', '/verify-email', '/reset-password', '/beta-signup'];
   const isPublicRoute = publicRoutes.includes(currentPath);
@@ -79,21 +86,25 @@ const AppWrapper = () => {
     return <Navigate to="/login" replace />;
   }
 
-  
+
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
       <Route path="/beta-signup" element={<BetaSignupPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/verify-email" element={<EmailVerificationPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/AuthForm" element={<AuthForm />} />
-      <Route path="/background-removal" element={<BackgroundRemovalPage />} />
-      <Route path="/upscale" element={<UpscalePage />} />
-      <Route path="/enlarge" element={<EnlargePage />} />
-      <Route path="/object-removal" element={<ObjectRemovalPage />} />
-      <Route path="/image-generation" element={<ImageGenerationPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {!CLOSED_BETA && (
+        <>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-email" element={<EmailVerificationPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/AuthForm" element={<AuthForm />} />
+          <Route path="/background-removal" element={<BackgroundRemovalPage />} />
+          <Route path="/upscale" element={<UpscalePage />} />
+          <Route path="/enlarge" element={<EnlargePage />} />
+          <Route path="/object-removal" element={<ObjectRemovalPage />} />
+          <Route path="/image-generation" element={<ImageGenerationPage />} />
+        </>
+      )}
+      <Route path="*" element={<Navigate to="/beta-signup" replace />} />
     </Routes>
   );
 };
